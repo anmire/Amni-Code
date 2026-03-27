@@ -560,8 +560,16 @@ async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
                 }
             }
         }
-        if models.is_empty() && !cfg.model_dir.is_empty() {
-            models = collect_models(&PathBuf::from(&cfg.model_dir)).await;
+        if models.is_empty() {
+            let scan_dir = if !cfg.model_dir.is_empty() {
+                Some(PathBuf::from(&cfg.model_dir))
+            } else {
+                auto_detect_model_dir(&cfg.working_dir).await
+            };
+            if let Some(d) = scan_dir {
+                tracing::info!("Ollama file scan: {:?}", d);
+                models = collect_models(&d).await;
+            }
         }
     } else if cfg.provider == "local" {
         tracing::info!("Local: trying {}/v1/models", base);
@@ -606,8 +614,14 @@ async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
                 Err(e) => tracing::warn!("Local /api/tags fetch error: {}", e),
             }
         }
-        if !cfg.model_dir.is_empty() {
-            let file_models = collect_models(&PathBuf::from(&cfg.model_dir)).await;
+        let scan_dir = if !cfg.model_dir.is_empty() {
+            Some(PathBuf::from(&cfg.model_dir))
+        } else {
+            auto_detect_model_dir(&cfg.working_dir).await
+        };
+        if let Some(d) = scan_dir {
+            tracing::info!("Local file scan: {:?}", d);
+            let file_models = collect_models(&d).await;
             for m in file_models {
                 if !models.contains(&m) {
                     models.push(m);
@@ -733,15 +747,47 @@ async fn handle_dirs(
     dirs.sort();
     Json(DirsRes { dirs })
 }
+async fn auto_detect_model_dir(working_dir: &str) -> Option<PathBuf> {
+    let candidates = [
+        PathBuf::from(working_dir).join("models"),
+        PathBuf::from(working_dir)
+            .parent()
+            .map(|p| p.join("models"))
+            .unwrap_or_default(),
+        dirs::home_dir()
+            .map(|h| h.join("models"))
+            .unwrap_or_default(),
+        dirs::home_dir()
+            .map(|h| h.join(".cache").join("huggingface").join("hub"))
+            .unwrap_or_default(),
+    ];
+    for c in &candidates {
+        if !c.as_os_str().is_empty() && tokio::fs::metadata(c).await.is_ok() {
+            tracing::info!("Auto-detected model dir: {:?}", c);
+            return Some(c.clone());
+        }
+    }
+    None
+}
 async fn collect_models(dir: &PathBuf) -> Vec<String> {
     let mut models = Vec::new();
-    let mut dirs = vec![dir.clone()];
-    while let Some(current_dir) = dirs.pop() {
+    let mut stack: Vec<(PathBuf, u32)> = vec![(dir.clone(), 0)];
+    while let Some((current_dir, depth)) = stack.pop() {
+        if depth > 3 {
+            continue;
+        }
         if let Ok(mut rd) = tokio::fs::read_dir(&current_dir).await {
             while let Ok(Some(e)) = rd.next_entry().await {
                 let path = e.path();
                 if path.is_dir() {
-                    dirs.push(path);
+                    let dname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if !dname.starts_with('.')
+                        && dname != "palace_textures"
+                        && dname != "__pycache__"
+                        && dname != "node_modules"
+                    {
+                        stack.push((path, depth + 1));
+                    }
                 } else if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
                     if let Some(name) = fname
                         .strip_suffix(".gguf")
