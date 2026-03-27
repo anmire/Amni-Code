@@ -76,6 +76,17 @@ copy /Y target\release\amni.exe "%USERPROFILE%\.amni\amni.exe" >nul
 if exist ".env" copy /Y .env "%USERPROFILE%\.amni\.env" >nul
 echo   Copied amni.exe to %USERPROFILE%\.amni\
 echo.
+REM Create desktop shortcut with hotkey
+powershell -Command "
+$WshShell = New-Object -comObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\Amni-Code.lnk')
+$Shortcut.TargetPath = '%USERPROFILE%\.amni\amni.exe'
+$Shortcut.WorkingDirectory = '%USERPROFILE%'
+$Shortcut.Hotkey = 'Win+Shift+A'
+$Shortcut.Save()
+"
+echo   Created desktop shortcut with Win+Shift+A hotkey.
+echo.
 REM Add to PATH if not already there
 echo %PATH% | findstr /I /C:".amni" >nul
 if errorlevel 1 (

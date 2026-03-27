@@ -6,8 +6,8 @@
 <title>Amni-Code</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0a0a;--panel:#111;--border:#1a1a1a;--accent:#00ff9d;--accent-dim:rgba(0,255,157,0.15);--accent-glow:rgba(0,255,157,0.3);--text:#e0e0e0;--dim:#666;--gold:#ffd700;--error:#ff4444;--font:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace}
-[data-theme="light"]{--bg:#f4f4f4;--panel:#fff;--border:#ddd;--accent:#00875a;--accent-dim:rgba(0,135,90,0.1);--accent-glow:rgba(0,135,90,0.2);--text:#1a1a1a;--dim:#666;--gold:#c79600;--error:#d32f2f}
+:root{--bg:#0a0a0a;--panel:#111;--border:#1a1a1a;--accent:#00ff9d;--accent-dim:rgba(0,255,157,0.15);--accent-glow:rgba(0,255,157,0.3);--text:#e0e0e0;--user-text:#111;--dim:#666;--gold:#ffd700;--error:#ff4444;--font:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace}
+[data-theme="light"]{--bg:#f4f4f4;--panel:#fff;--border:#ddd;--accent:#00875a;--accent-dim:rgba(0,135,90,0.1);--accent-glow:rgba(0,135,90,0.2);--text:#1a1a1a;--user-text:#fff;--dim:#666;--gold:#c79600;--error:#d32f2f}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.7;overflow:hidden}
 a{color:var(--accent);text-decoration:none;transition:opacity .2s}
 a:hover{opacity:.8}
@@ -32,7 +32,7 @@ a:hover{opacity:.8}
 .messages::-webkit-scrollbar{width:6px}
 .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .msg{max-width:85%;padding:14px 18px;border-radius:14px;line-height:1.6;font-size:14px;word-wrap:break-word}
-.msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--user-text);border-bottom-right-radius:4px}
 .msg.assistant{align-self:flex-start;background:var(--panel);border-bottom-left-radius:4px;border:1px solid var(--border)}
 .msg.assistant pre{background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;font-family:var(--font);font-size:13px;line-height:1.5}
 .msg.assistant code{font-family:var(--font);font-size:13px;background:var(--bg);padding:2px 6px;border-radius:4px}
@@ -56,6 +56,16 @@ a:hover{opacity:.8}
 @keyframes bounce{to{opacity:.3;transform:translateY(-4px)}}
 .settings-panel{position:fixed;top:0;right:-380px;width:380px;height:100%;background:var(--panel);border-left:1px solid var(--border);z-index:100;transition:right .3s;padding:24px;overflow-y:auto}
 .settings-panel.open{right:0}
+.history-panel{position:fixed;top:0;left:-320px;width:320px;height:100%;background:var(--panel);border-right:1px solid var(--border);z-index:100;transition:left .3s;padding:24px;overflow-y:auto;display:flex;flex-direction:column}
+.history-panel.open{left:0}
+.history-panel h2{font-size:15px;color:var(--text);margin:0}
+.hist-item{padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;background:var(--bg);transition:border-color .2s;position:relative}
+.hist-item:hover{border-color:var(--accent)}
+.hist-title{font-size:13px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);padding-right:20px}
+.hist-time{font-size:11px;color:var(--dim)}
+.hist-del{position:absolute;top:8px;right:8px;z-index:2;background:none;border:none;color:var(--dim);cursor:pointer;opacity:0}
+.hist-item:hover .hist-del{opacity:1}
+.hist-del:hover{color:var(--error)}
 .settings-panel h2{font-size:15px;margin-bottom:16px;color:var(--text)}
 .settings-panel label{display:block;font-size:12px;color:var(--dim);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.5px}
 .settings-panel input,.settings-panel select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s}
@@ -94,6 +104,9 @@ a:hover{opacity:.8}
       <h1><span>Amni</span>-Code</h1>
       <div class="header-actions">
         <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">DARK</button>
+        <button class="icon-btn" id="history-btn" title="Recent Chats">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
         <button class="icon-btn" id="diff-toggle" title="Code Changes">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v18H3zM14 3h7v18h-7"/><path d="M7 8H5M7 12H5M7 16H5M19 8h-2M19 12h-2M19 16h-2"/></svg>
         </button>
@@ -138,6 +151,13 @@ a:hover{opacity:.8}
   </div>
 </div>
 <div class="settings-overlay" id="settings-overlay"></div>
+<div class="history-panel" id="history-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h2>Recent Chats</h2>
+    <span style="cursor:pointer;font-size:12px;color:var(--dim)" onclick="clearHistory()">Clear All</span>
+  </div>
+  <div id="history-list" style="flex:1;overflow-y:auto"></div>
+</div>
 <div class="settings-panel" id="settings-panel">
   <h2>Settings</h2>
   <label>Provider</label>
@@ -150,7 +170,7 @@ a:hover{opacity:.8}
   </select>
   <label>Model</label>
   <select id="cfg-model"><option>Loading...</option></select>
-  <label>API Key <span style="font-size:10px;color:var(--green)" id="key-src"></span></label>
+  <label id="api-key-label">API Key <span style="font-size:10px;color:var(--green)" id="key-src"></span></label>
   <input id="cfg-key" type="password" placeholder="Not needed for Ollama">
   <label>Base URL</label>
   <input id="cfg-url" placeholder="http://localhost:11434">
@@ -170,15 +190,73 @@ a:hover{opacity:.8}
 <script>
 const $ = s => document.querySelector(s);
 const msgEl = $('#messages'), inputEl = $('#input'), sendBtn = $('#send');
-let sessionId = null, diffData = [];
+let sessionId = null, diffData = [], currentChatId = null;
+let chatHistory = JSON.parse(localStorage.getItem('amniHistory') || '[]');
+
+function saveCurrentChat(){
+  if(!currentChatId) return;
+  const idx = chatHistory.findIndex(c => c.id === currentChatId);
+  const data = {
+    id: currentChatId,
+    title: chatHistory[idx]?.title || 'New Chat',
+    date: Date.now(),
+    html: msgEl.innerHTML,
+    diff: diffData,
+    sessionId: sessionId
+  };
+  if(idx >= 0) chatHistory[idx] = data;
+  else chatHistory.unshift(data);
+  localStorage.setItem('amniHistory', JSON.stringify(chatHistory));
+}
+
+function loadChat(id){
+  const chat = chatHistory.find(c => c.id === id);
+  if(!chat) return;
+  currentChatId = chat.id;
+  sessionId = chat.sessionId;
+  diffData = chat.diff || [];
+  msgEl.innerHTML = chat.html;
+  msgEl.scrollTop = msgEl.scrollHeight;
+  renderDiff();
+  $('#history-panel').classList.remove('open');
+  $('#settings-overlay').classList.remove('open');
+}
+
+function renderHistory(){
+  const list = $('#history-list');
+  if(!chatHistory.length){ list.innerHTML = '<p style="color:var(--dim);font-size:12px;text-align:center">No recent chats</p>'; return; }
+  list.innerHTML = chatHistory.map(c => `
+    <div class="hist-item" onclick="loadChat(${c.id})">
+      <button class="hist-del" onclick="event.stopPropagation();deleteChat(${c.id})">✕</button>
+      <div class="hist-title">${escHtml(c.title)}</div>
+      <div class="hist-time">${new Date(c.date).toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+function deleteChat(id){
+  chatHistory = chatHistory.filter(c => c.id !== id);
+  localStorage.setItem('amniHistory', JSON.stringify(chatHistory));
+  if(currentChatId === id) $('#new-chat').click();
+  else renderHistory();
+}
+
+function clearHistory(){
+  if(!confirm('Clear all chat history?')) return;
+  chatHistory = [];
+  localStorage.setItem('amniHistory', '[]');
+  $('#new-chat').click();
+  renderHistory();
+}
 function fillPrompt(t){ inputEl.value = t; inputEl.focus(); }
 function autoResize(el){ el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 150) + 'px'; }
 inputEl.addEventListener('input', () => autoResize(inputEl));
 inputEl.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }});
 sendBtn.addEventListener('click', send);
-$('#new-chat').addEventListener('click', () => { sessionId = null; diffData = []; msgEl.innerHTML = $('#welcome') ? '' : ''; location.reload(); });
+$('#new-chat').addEventListener('click', () => { sessionId = null; diffData = []; currentChatId = null; msgEl.innerHTML = ''; location.reload(); });
+$('#history-btn').addEventListener('click', () => { renderHistory(); $('#history-panel').classList.add('open'); $('#settings-overlay').classList.add('open'); });
 $('#settings-btn').addEventListener('click', () => { $('#settings-panel').classList.toggle('open'); $('#settings-overlay').classList.toggle('open'); loadConfig(); });
-$('#settings-overlay').addEventListener('click', () => { $('#settings-panel').classList.remove('open'); $('#settings-overlay').classList.remove('open'); saveConfig(); });
+$('#settings-overlay').addEventListener('click', () => { $('#settings-panel').classList.remove('open'); $('#history-panel').classList.remove('open'); $('#settings-overlay').classList.remove('open'); saveConfig(); });
 $('#diff-toggle').addEventListener('click', toggleDiff);$('#theme-toggle').addEventListener('click', toggleTheme);function toggleDiff(){ $('#diff-col').classList.toggle('open'); $('#diff-toggle').classList.toggle('active'); }
 function toggleTheme(){
   const body = document.body;
@@ -223,6 +301,7 @@ function addMsg(role, content, tools){
   }
   msgEl.appendChild(div);
   msgEl.scrollTop = msgEl.scrollHeight;
+  if(currentChatId) saveCurrentChat();
 }
 function parseDiff(tc){
   const entry = { file: tc.input.path || 'unknown', type: tc.tool };
@@ -235,15 +314,34 @@ function parseDiff(tc){
   }
   diffData.push(entry);
   renderDiff();
+  if(currentChatId) saveCurrentChat();
 }
 function renderDiff(){
   const body = $('#diff-body');
   if(!diffData.length){ body.innerHTML = '<p style="color:var(--text2);padding:20px;text-align:center">No changes yet</p>'; return; }
   let html = '';
   diffData.forEach(d => {
-    html += `<div class="diff-file">📄 ${escHtml(d.file)} (${d.type})</div>`;
-    if(d.removed) d.removed.split('\n').forEach(l => html += `<div class="diff-line rm">- ${escHtml(l)}</div>`);
-    if(d.added) d.added.split('\n').forEach(l => html += `<div class="diff-line add">+ ${escHtml(l)}</div>`);
+    let fileHtml = `<div class="diff-file">📄 ${escHtml(d.file)} (${d.type})</div>`;
+    if(d.type === 'write_file'){
+      if(d.added) d.added.split('\n').filter(l=>l).forEach(l => fileHtml += `<div class="diff-line add">+ ${escHtml(l)}</div>`);
+    } else {
+      const oldL = d.removed ? d.removed.split('\n') : [];
+      const newL = d.added ? d.added.split('\n') : [];
+      let i = 0; while(i < oldL.length && i < newL.length && oldL[i] === newL[i]) i++;
+      let j1 = oldL.length - 1, j2 = newL.length - 1;
+      while(j1 >= i && j2 >= i && oldL[j1] === newL[j2]){ j1--; j2--; }
+      
+      const ctxPre = Math.max(0, i - 2);
+      if(ctxPre > 0) fileHtml += `<div class="diff-line ctx" style="opacity:0.5">... ${ctxPre} unchanged lines ...</div>`;
+      for(let k=ctxPre; k<i; k++) if(oldL[k]!==undefined) fileHtml += `<div class="diff-line ctx">  ${escHtml(oldL[k])}</div>`;
+      for(let k=i; k<=j1; k++) fileHtml += `<div class="diff-line rm">- ${escHtml(oldL[k])}</div>`;
+      for(let k=i; k<=j2; k++) fileHtml += `<div class="diff-line add">+ ${escHtml(newL[k])}</div>`;
+      const ctxPost = Math.min(oldL.length - 1, j1 + 2);
+      for(let k=j1+1; k<=ctxPost; k++) if(oldL[k]!==undefined) fileHtml += `<div class="diff-line ctx">  ${escHtml(oldL[k])}</div>`;
+      
+      if(j1 < oldL.length - 3) fileHtml += `<div class="diff-line ctx" style="opacity:0.5">... ${oldL.length - j1 - 3} unchanged lines ...</div>`;
+    }
+    html += fileHtml;
   });
   body.innerHTML = html;
   if(!$('#diff-col').classList.contains('open')) toggleDiff();
@@ -260,6 +358,10 @@ function removeThinking(){ const t = $('#thinking'); if(t) t.remove(); }
 async function send(){
   const text = inputEl.value.trim();
   if(!text) return;
+  if(!currentChatId){
+    currentChatId = Date.now();
+    chatHistory.unshift({ id: currentChatId, title: text.substring(0, 40) + '...', date: Date.now(), html: '', diff: [] });
+  }
   inputEl.value = ''; autoResize(inputEl);
   sendBtn.disabled = true;
   addMsg('user', text);
@@ -293,6 +395,8 @@ async function loadConfig(){
     if(c.auto_approve) $('#cfg-auto').classList.add('on'); else $('#cfg-auto').classList.remove('on');
     if(c.api_key) $('#key-src').textContent = '(from ENV)';
     $('#model-dir-section').style.display = (c.provider === 'ollama' || c.provider === 'local') ? 'block' : 'none';
+    $('#api-key-label').style.display = (c.provider === 'ollama' || c.provider === 'local') ? 'none' : 'block';
+    $('#cfg-key').style.display = (c.provider === 'ollama' || c.provider === 'local') ? 'none' : 'block';
     await loadModels(c.model);
     loadDirs(c.working_dir);
   } catch(e){}
@@ -359,11 +463,13 @@ async function saveConfig(){
 }
 $('#cfg-provider').addEventListener('change', () => {
   const p = $('#cfg-provider').value;
-  if(p === 'ollama' || p === 'local'){ $('#cfg-url').value = 'http://localhost:11434'; }
+  if(p === 'ollama' || p === 'local'){ $('#cfg-url').value = p === 'local' ? 'http://localhost:8787' : 'http://localhost:11434'; }
   else if(p === 'openai'){ $('#cfg-url').value = 'https://api.openai.com'; }
   else if(p === 'anthropic'){ $('#cfg-url').value = 'https://api.anthropic.com'; }
   else if(p === 'xai'){ $('#cfg-url').value = 'https://api.x.ai'; }
   $('#model-dir-section').style.display = (p === 'ollama' || p === 'local') ? 'block' : 'none';
+  $('#api-key-label').style.display = (p === 'ollama' || p === 'local') ? 'none' : 'block';
+  $('#cfg-key').style.display = (p === 'ollama' || p === 'local') ? 'none' : 'block';
   saveConfig().then(() => loadModels());
 });
 $('#cfg-dir').addEventListener('change', () => loadDirs($('#cfg-dir').value));
