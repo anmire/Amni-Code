@@ -1,7 +1,7 @@
 <p align="center">
   <h1 align="center">Amni-Code</h1>
   <p align="center">
-    <b>An open-source AI coding agent that runs in your browser.</b><br>
+    <b>An open-source AI coding agent with a native standalone window.</b><br>
     Built in Rust. Works with any OpenAI-compatible backend — Ollama, OpenAI, Anthropic, xAI, or your own local server.
   </p>
   <p align="center">
@@ -72,13 +72,13 @@ target\release\amni-code.exe   # Windows
 .\run.bat   # Windows — auto-installs Rust and builds if needed
 ```
 
-Then open **http://localhost:3000** in your browser.
+A standalone window opens automatically. Use `--browser` flag to open in browser instead.
 
 ## How It Works
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│  Browser UI (localhost:3000)                          │
+│  Native Window (WebView2)                             │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
 │  │  Chat     │ │ Settings │ │  Code Diff Panel     │ │
 │  │  Window   │ │  Panel   │ │  (live file changes) │ │

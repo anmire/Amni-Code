@@ -34,7 +34,7 @@ impl Default for Config {
             "anthropic" => ("claude-sonnet-4-20250514".to_string(), "https://api.anthropic.com".to_string()),
             "ollama" => (String::new(), "http://localhost:11434".to_string()),
             "local" => (String::new(), "http://localhost:11434".to_string()),
-            _ => ("grok-3".to_string(), "https://api.x.ai".to_string()),
+            _ => ("grok-4-1-fast-reasoning".to_string(), "https://api.x.ai".to_string()),
         };
         Self { provider: provider.into(), model, api_key: key, base_url, auto_approve: false,
             working_dir: std::env::current_dir().unwrap_or_default().to_string_lossy().into(),
@@ -269,7 +269,7 @@ async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
     } else if cfg.provider == "anthropic" {
         models.extend(["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-haiku-20241022"].iter().map(|s| s.to_string()));
     } else if cfg.provider == "xai" {
-        models.extend(["grok-3", "grok-3-mini", "grok-2"].iter().map(|s| s.to_string()));
+        models.extend(["grok-4-1-fast-reasoning", "grok-4-1-fast-non-reasoning", "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning", "grok-4.20-multi-agent-0309"].iter().map(|s| s.to_string()));
     }
     Json(ModelsRes { models })
 }
@@ -308,7 +308,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
-    println!("\n  Amni-Code v1.0.0 — AI Coding Agent");
+    println!("\n  Amni-Code v1.1.0 — AI Coding Agent");
     println!("  Working dir: {}", cwd.display());
     let app = App {
         sessions: Arc::new(Mutex::new(HashMap::new())),
@@ -324,10 +324,40 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(handle_health))
         .layer(CorsLayer::permissive())
         .with_state(app);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    println!("  Server: http://localhost:3000");
-    println!("  Opening browser...\n");
-    let _ = open::that("http://localhost:3000");
-    axum::serve(listener, router).await?;
+    let use_browser = std::env::args().any(|a| a == "--browser");
+    if use_browser {
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+        println!("  Server: http://localhost:3000");
+        println!("  Opening browser...\n");
+        let _ = open::that("http://localhost:3000");
+        axum::serve(listener, router).await?;
+    } else {
+        tokio::spawn(async move {
+            let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+            println!("  Server: http://localhost:3000\n");
+            axum::serve(listener, router).await.unwrap();
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        use tao::event::{Event, WindowEvent};
+        use tao::event_loop::{ControlFlow, EventLoop};
+        use tao::window::WindowBuilder;
+        use wry::WebViewBuilder;
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new()
+            .with_title("Amni-Code — AI Coding Agent")
+            .with_inner_size(tao::dpi::LogicalSize::new(1200.0, 800.0))
+            .build(&event_loop)
+            .unwrap();
+        let _webview = WebViewBuilder::new()
+            .with_url("http://localhost:3000")
+            .build(&window)
+            .unwrap();
+        event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Wait;
+            if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = event {
+                *control_flow = ControlFlow::Exit;
+            }
+        });
+    }
     Ok(())
 }

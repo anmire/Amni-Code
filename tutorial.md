@@ -120,7 +120,7 @@ The agent operates in the directory shown in Settings. Change it to point at any
 
 | Provider | Models | API Key Env Var |
 |----------|--------|-----------------|
-| **xAI** (default) | grok-3, grok-3-mini, grok-2 | `XAI_API_KEY` |
+| **xAI** (default) | grok-4-1-fast-reasoning, grok-4.20-0309-reasoning, grok-4.20-multi-agent-0309 | `XAI_API_KEY` |
 | **OpenAI** | gpt-4o, gpt-4o-mini, o1, o3-mini | `OPENAI_API_KEY` |
 | **Anthropic** | claude-sonnet-4, claude-opus-4, claude-3.5-haiku | `ANTHROPIC_API_KEY` |
 | **Ollama** | Any local model | (none needed) |
