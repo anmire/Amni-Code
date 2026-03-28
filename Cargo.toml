@@ -26,3 +26,8 @@ dirs = "5"
 urlencoding = "2"
 tao = "0.32"
 wry = "0.47"
+
+[profile.dev]
+debug = 0
+incremental = false
+

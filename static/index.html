@@ -459,7 +459,7 @@ async function loadDirs(base){
       `<div style="padding:2px 6px;cursor:pointer;border-radius:4px;color:var(--text2)" 
         onmouseenter="this.style.background='var(--surface2)';this.style.color='var(--accent)'" 
         onmouseleave="this.style.background='';this.style.color='var(--text2)'"
-        onclick="selectDir(this,'${escJsStr(base)}','${escJsStr(d)}')">📁 ${escHtml(d)}</div>`
+          onclick="selectDir(this, decodeURIComponent('${encodeURIComponent(base)}'), decodeURIComponent('${encodeURIComponent(d)}'))">ðŸ“ ${escHtml(d)}</div>`
     ).join('');
   } catch(e){}
 }
