@@ -6,7 +6,7 @@
 <title>Amni-Code</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0a0a;--panel:#111;--border:#1a1a1a;--accent:#00ff9d;--accent-dim:rgba(0,255,157,0.15);--accent-glow:rgba(0,255,157,0.3);--text:#e0e0e0;--user-text:#111;--dim:#666;--gold:#ffd700;--error:#ff4444;--font:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace}
+:root{--bg:#0a0a0a;--panel:#111;--border:#1a1a1a;--accent:#00d180;--accent-dim:rgba(0,209,128,0.15);--accent-glow:rgba(0,209,128,0.3);--text:#e0e0e0;--user-text:#111;--dim:#666;--gold:#ffd700;--error:#ff4444;--font:'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace}
 [data-theme="light"]{--bg:#f4f4f4;--panel:#fff;--border:#ddd;--accent:#00875a;--accent-dim:rgba(0,135,90,0.1);--accent-glow:rgba(0,135,90,0.2);--text:#1a1a1a;--user-text:#fff;--dim:#666;--gold:#c79600;--error:#d32f2f}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.7;overflow:hidden}
 a{color:var(--accent);text-decoration:none;transition:opacity .2s}
@@ -121,8 +121,8 @@ a:hover{opacity:.8}
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
         <h2>Welcome to Amni-Code</h2>
-        <p>Your AI coding agent. Type anything below — ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.</p>
-        <p style="color:var(--text2);font-size:12px;margin-top:6px">Click ⚙ to configure your AI provider (xAI Grok by default)</p>
+        <p>Your AI coding agent. Type anything below &mdash; ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.</p>
+        <p style="color:var(--text2);font-size:12px;margin-top:6px">Click &#9881; to configure your AI provider (xAI Grok by default)</p>
         <div class="keys">
           <div class="key" onclick="fillPrompt('Create a Python Flask API with user auth')">Build an API</div>
           <div class="key" onclick="fillPrompt('Find and fix the bug in main.py')">Debug code</div>
@@ -246,7 +246,7 @@ function renderHistory(){
   if(!chatHistory.length){ list.innerHTML = '<p style="color:var(--dim);font-size:12px;text-align:center">No recent chats</p>'; return; }
   list.innerHTML = chatHistory.map(c => `
     <div class="hist-item" onclick="loadChat(${c.id})">
-      <button class="hist-del" onclick="event.stopPropagation();deleteChat(${c.id})">✕</button>
+      <button class="hist-del" onclick="event.stopPropagation();deleteChat(${c.id})">&#10005;</button>
       <div class="hist-title">${escHtml(c.title)}</div>
       <div class="hist-time">${new Date(c.date).toLocaleString()}</div>
     </div>
@@ -308,12 +308,12 @@ function addMsg(role, content, tools){
     let toolHtml = '<div class="tool-group">';
     tools.forEach(t => {
       const cls = t.status === 'success' ? 'success' : 'error';
-      toolHtml += `<span class="tool-badge ${cls}">⚡ ${escHtml(t.tool)}</span>`;
+      toolHtml += `<span class="tool-badge ${cls}">&#9889; ${escHtml(t.tool)}</span>`;
     });
-    toolHtml += `<button class="tool-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">▸ details</button>`;
+    toolHtml += `<button class="tool-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">&#9656; details</button>`;
     toolHtml += `<div class="tool-detail" style="display:none">`;
     tools.forEach(t => {
-      toolHtml += `\n─── ${t.tool} ───\nInput: ${JSON.stringify(t.input, null, 2)}\nOutput: ${t.output.substring(0, 500)}${t.output.length > 500 ? '...' : ''}\n`;
+      toolHtml += `\n&#9472;&#9472;&#9472; ${t.tool} &#9472;&#9472;&#9472;\nInput: ${JSON.stringify(t.input, null, 2)}\nOutput: ${t.output.substring(0, 500)}${t.output.length > 500 ? '...' : ''}\n`;
       if(t.tool === 'write_file' || t.tool === 'edit_file') parseDiff(t);
     });
     toolHtml += '</div></div>';
@@ -343,7 +343,7 @@ function renderDiff(){
   if(!diffData.length){ body.innerHTML = '<p style="color:var(--text2);padding:20px;text-align:center">No changes yet</p>'; return; }
   let html = '';
   diffData.forEach(d => {
-    let fileHtml = `<div class="diff-file">📄 ${escHtml(d.file)} (${d.type})</div>`;
+    let fileHtml = `<div class="diff-file">&#128196; ${escHtml(d.file)} (${d.type})</div>`;
     if(d.type === 'write_file'){
       if(d.added) d.added.split('\n').filter(l=>l).forEach(l => fileHtml += `<div class="diff-line add">+ ${escHtml(l)}</div>`);
     } else {
@@ -400,7 +400,7 @@ async function send(){
     addMsg('assistant', data.message, data.tool_calls);
   } catch(e){
     removeThinking();
-    addMsg('system', 'Connection error — is the server running? Check Settings for provider config.');
+    addMsg('system', 'Connection error &mdash; is the server running? Check Settings for provider config.');
   }
   sendBtn.disabled = false;
   inputEl.focus();
@@ -431,7 +431,7 @@ async function loadModels(current){
     sel.innerHTML = '';
     if(data.models.length === 0){
       const p = $('#cfg-provider').value;
-      const hint = (p === 'ollama' || p === 'local') ? '(no models — run: ollama pull <model>)' : '(no models found)';
+      const hint = (p === 'ollama' || p === 'local') ? '(no models &mdash; run: ollama pull <model>)' : '(no models found)';
       sel.innerHTML = `<option>${hint}</option>`;
       return;
     }
@@ -459,7 +459,7 @@ async function loadDirs(base){
       `<div style="padding:2px 6px;cursor:pointer;border-radius:4px;color:var(--text2)" 
         onmouseenter="this.style.background='var(--surface2)';this.style.color='var(--accent)'" 
         onmouseleave="this.style.background='';this.style.color='var(--text2)'"
-          onclick="selectDir(this, decodeURIComponent('${encodeURIComponent(base)}'), decodeURIComponent('${encodeURIComponent(d)}'))">ðŸ“ ${escHtml(d)}</div>`
+          onclick="selectDir(this, decodeURIComponent('${encodeURIComponent(base)}'), decodeURIComponent('${encodeURIComponent(d)}'))">&#128193; ${escHtml(d)}</div>`
     ).join('');
   } catch(e){}
 }
@@ -524,7 +524,7 @@ async function hfSearch(){
         onmouseleave="this.style.borderColor='var(--border)'"
         onclick="hfShowFiles('${escJsStr(m.id)}',this)">
         <div style="font-weight:600;color:var(--text)">${escHtml(m.id)}</div>
-        <div style="color:var(--dim);font-size:11px">⬇ ${dl} downloads · ♥ ${m.likes}</div>
+        <div style="color:var(--dim);font-size:11px">&#11015; ${dl} downloads &middot; &hearts; ${m.likes}</div>
       </div>`;
     }).join('');
   } catch(e){ el.innerHTML = '<span style="color:var(--error)">Search failed</span>'; }
@@ -536,7 +536,7 @@ async function hfShowFiles(repo, el){
     const res = await fetch('/api/hf/files?repo=' + encodeURIComponent(repo));
     const files = await res.json();
     if(!files.length){ filesEl.innerHTML = '<span style="color:var(--dim)">No GGUF files in this repo</span>'; return; }
-    filesEl.innerHTML = '<div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">GGUF FILES — ' + escHtml(repo) + '</div>' +
+    filesEl.innerHTML = '<div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">GGUF FILES &mdash; ' + escHtml(repo) + '</div>' +
       files.map(f => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:3px">
         <div style="flex:1;min-width:0">
           <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
