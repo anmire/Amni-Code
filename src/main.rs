@@ -1,12 +1,17 @@
 use axum::{
     extract::{Query, State},
-    response::{Html, Json},
+    response::{
+        sse::{Event as SseEvent, KeepAlive, Sse},
+        Html, Json,
+    },
     routing::{get, post},
     Router,
 };
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::{Path, PathBuf}, process::Stdio, sync::Arc};
+use std::{collections::HashMap, convert::Infallible, path::{Path, PathBuf}, process::Stdio, sync::Arc};
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::ReceiverStream;
 use tower_http::cors::CorsLayer;
 #[derive(Clone, Default, Serialize)]
 struct DownloadProgress {
@@ -23,11 +28,9 @@ struct App {
     config: Arc<Mutex<Config>>,
     cwd: Arc<Mutex<PathBuf>>,
     dl_progress: Arc<Mutex<DownloadProgress>>,
+    backups: Arc<Mutex<HashMap<String, Vec<(String, Option<String>)>>>>,
 }
-#[derive(Clone, Default)]
-struct Session {
-    messages: Vec<serde_json::Value>,
-}
+#[derive(Clone,Default)]struct Session{messages:Vec<serde_json::Value>,working_dir:String}
 #[derive(Clone, Serialize, Deserialize)]
 struct Config {
     provider: String,
@@ -109,12 +112,8 @@ const TOOLS_JSON: &str = r#"[
   {"type":"function","function":{"name":"list_directory","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
   {"type":"function","function":{"name":"search_files","description":"Search for text across files","parameters":{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}},"required":["query"]}}}
 ]"#;
-const SYSTEM_PROMPT: &str = "You are Amni-Code, an expert AI coding agent. Your working directory is: {CWD}\n\nCRITICAL RULES:\n1. ALWAYS use your tools proactively. NEVER ask the user for information you can discover with tools. If the user asks about code or a project, IMMEDIATELY call list_directory and read_file to explore — do NOT ask the user to provide code.\n2. When asked about a codebase: start by calling list_directory on the working directory, then read key files (README, main entry points, config files) to build understanding before responding.\n3. When asked to create or modify code: read the relevant files first, then make changes with write_file or edit_file.\n4. When debugging: read the code, understand the issue, make targeted fixes, then run tests.\n5. After making changes: run builds or tests to verify.\n6. Execute all steps in sequence — don't describe what you would do, just do it.\n7. Be concise but thorough.\n8. Use the working directory as base for relative paths.\n\nAvailable tools: read_file, write_file, edit_file, run_command, list_directory, search_files";
-#[derive(Deserialize)]
-struct ChatReq {
-    message: String,
-    session_id: Option<String>,
-}
+const SYSTEM_PROMPT: &str = "You are Amni-Code, an expert AI coding agent. Your working directory is: {CWD}\n\nCRITICAL RULES:\n1. ALWAYS chain multiple actions together. Do NOT stop after a single tool call — complete the entire task in one go. For example: list directory → read files → make edits → run tests, all in sequence without pausing.\n2. NEVER ask the user for information you can discover with tools. If the user asks about code or a project, IMMEDIATELY call list_directory and read_file to explore.\n3. When asked about a codebase: start by calling list_directory, then read key files (README, main entry points, configs) to build understanding.\n4. When asked to create or modify code: read relevant files first, then make ALL needed changes, then verify with builds/tests.\n5. When debugging: read code → understand the issue → make targeted fixes → run tests to verify. Do NOT stop partway through.\n6. Execute all steps in sequence — don't describe what you would do, just do it. Keep going until the task is fully complete.\n7. Be concise but thorough.\n8. Use the working directory as base for relative paths.\n9. After making changes, always verify they work (run builds, tests, or re-read the changed files).\n10. If a tool call fails, try to fix the issue and retry — don't give up after one error.\n\nAvailable tools: read_file, write_file, edit_file, run_command, list_directory, search_files";
+#[derive(Deserialize)]struct ChatReq{message:String,session_id:Option<String>,working_dir:Option<String>}
 #[derive(Serialize)]
 struct ChatRes {
     session_id: String,
@@ -393,68 +392,87 @@ async fn llm_call(
         Err((msg, false)) => Err(msg),
     }
 }
-async fn agent_loop(app: &App, sid: &str, user_msg: &str) -> ChatRes {
-    let config = app.config.lock().await.clone();
-    ensure_model_loaded(&config).await;
-    let cwd_path = app.cwd.lock().await.clone();
-    {
-        let mut sessions = app.sessions.lock().await;
-        let session = sessions.entry(sid.to_string()).or_default();
-        if session.messages.is_empty() {
-            let sys = SYSTEM_PROMPT.replace("{CWD}", &cwd_path.display().to_string());
-            session
-                .messages
-                .push(serde_json::json!({"role": "system", "content": sys}));
-        }
-        session
-            .messages
-            .push(serde_json::json!({"role": "user", "content": user_msg}));
+fn compact_context(messages: &mut Vec<serde_json::Value>) {
+    let total_chars: usize = messages
+        .iter()
+        .filter_map(|m| m["content"].as_str())
+        .map(|s| s.len())
+        .sum();
+    if total_chars < 80000 || messages.len() < 20 {
+        return;
     }
-    let mut all_tools = Vec::new();
-    for _ in 0..15 {
-        let messages = app
-            .sessions
-            .lock()
-            .await
-            .get(sid)
-            .map(|s| s.messages.clone())
-            .unwrap_or_default();
-        match llm_call(&config, &messages).await {
-            Ok((raw_msg, tool_calls)) => {
-                if tool_calls.is_empty() {
-                    let content = raw_msg["content"].as_str().unwrap_or("").to_string();
-                    app.sessions
-                        .lock()
-                        .await
-                        .entry(sid.to_string())
-                        .or_default()
-                        .messages
-                        .push(raw_msg);
-                    return ChatRes {
-                        session_id: sid.into(),
-                        message: content,
-                        tool_calls: all_tools,
-                        done: true,
-                    };
-                }
+    let keep_recent = 10;
+    if messages.len() <= keep_recent + 1 {
+        return;
+    }
+    let system_msg = messages[0].clone();
+    let recent: Vec<_> = messages[messages.len() - keep_recent..].to_vec();
+    let dropped = messages.len() - 1 - keep_recent;
+    messages.clear();
+    messages.push(system_msg);
+    messages.push(serde_json::json!({
+        "role": "system",
+        "content": format!("[Context auto-compacted: {} earlier messages removed to maintain performance. Continue from the recent context below.]", dropped)
+    }));
+    messages.extend(recent);
+}
+async fn agent_loop_stream(app:App,sid:String,user_msg:String,wd:Option<String>,tx:tokio::sync::mpsc::Sender<SseEvent>){let config=app.config.lock().await.clone();ensure_model_loaded(&config).await;let cwd=app.cwd.lock().await.clone();let cwd_path=if let Some(s)=app.sessions.lock().await.get(&sid){if!s.working_dir.is_empty(){PathBuf::from(&s.working_dir)}else{cwd.clone()}}else{wd.as_ref().map_or(cwd.clone(),|w|PathBuf::from(w))};{let mut sessions=app.sessions.lock().await;let session=sessions.entry(sid.clone()).or_default();if session.messages.is_empty(){let sys=SYSTEM_PROMPT.replace("{CWD}",&cwd_path.display().to_string());session.messages.push(serde_json::json!({"role":"system","content":sys}));if let Some(w)=wd{session.working_dir=w.clone();}}session.messages.push(serde_json::json!({"role":"user","content":&user_msg}));compact_context(&mut session.messages);}
+let _=tx.send(SseEvent::default().event("session").data(serde_json::json!({"session_id":&sid}).to_string())).await;
+let mut it=0;while it<100{it+=1;let messages=app.sessions.lock().await.get(&sid).map(|s|s.messages.clone()).unwrap_or_default();let _=tx.send(SseEvent::default().event("thinking").data("{}")).await;match llm_call(&config,&messages).await{Ok((raw_msg,tool_calls))=>{if tool_calls.is_empty(){let content=raw_msg["content"].as_str().unwrap_or("").to_string();app.sessions.lock().await.entry(sid.clone()).or_default().messages.push(raw_msg);let _=tx.send(SseEvent::default().event("message").data(serde_json::json!({"message":&content}).to_string())).await;let _=tx.send(SseEvent::default().event("done").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}
                 app.sessions
                     .lock()
                     .await
-                    .entry(sid.to_string())
+                    .entry(sid.clone())
                     .or_default()
                     .messages
                     .push(raw_msg);
                 for tc in &tool_calls {
+                    let _ = tx
+                        .send(
+                            SseEvent::default().event("tool_start").data(
+                                serde_json::json!({"tool": &tc.name, "input": &tc.args})
+                                    .to_string(),
+                            ),
+                        )
+                        .await;
+                    // Backup before file operations
+                    if tc.name == "write_file" || tc.name == "edit_file" {
+                        if let Some(path) = tc.args["path"].as_str() {
+                            let full_path = if PathBuf::from(path).is_absolute() {
+                                PathBuf::from(path)
+                            } else {
+                                cwd_path.join(path)
+                            };
+                            let original = tokio::fs::read_to_string(&full_path).await.ok();
+                            let mut backups = app.backups.lock().await;
+                            let session_backups = backups.entry(sid.clone()).or_default();
+                            let path_str = full_path.display().to_string();
+                            if !session_backups.iter().any(|(p, _)| p == &path_str) {
+                                session_backups.push((path_str, original));
+                            }
+                        }
+                    }
                     let (output, status) = exec_tool(&tc.name, &tc.args, &cwd_path).await;
-                    all_tools.push(ToolCallResult {
-                        tool: tc.name.clone(),
-                        input: tc.args.clone(),
-                        output: output.clone(),
-                        status,
-                    });
-                    app.sessions.lock().await.entry(sid.to_string()).or_default().messages.push(
-                        serde_json::json!({"role": "tool", "tool_call_id": tc.id, "content": output})
-                    );
+                    let _ = tx
+                        .send(
+                            SseEvent::default().event("tool_result").data(
+                                serde_json::json!({
+                                    "tool": &tc.name,
+                                    "input": &tc.args,
+                                    "output": &output,
+                                    "status": &status
+                                })
+                                .to_string(),
+                            ),
+                        )
+                        .await;
+                    app.sessions
+                        .lock()
+                        .await
+                        .entry(sid.clone())
+                        .or_default()
+                        .messages
+                        .push(serde_json::json!({"role": "tool", "tool_call_id": &tc.id, "content": &output}));
                 }
             }
             Err(e) => {
@@ -462,39 +480,36 @@ async fn agent_loop(app: &App, sid: &str, user_msg: &str) -> ChatRes {
                 app.sessions
                     .lock()
                     .await
-                    .entry(sid.to_string())
+                    .entry(sid.clone())
                     .or_default()
                     .messages
                     .push(serde_json::json!({"role": "assistant", "content": &err_msg}));
-                return ChatRes {
-                    session_id: sid.into(),
-                    message: err_msg,
-                    tool_calls: all_tools,
-                    done: true,
-                };
+                let _ = tx
+                    .send(
+                        SseEvent::default()
+                            .event("error")
+                            .data(serde_json::json!({"error": &err_msg}).to_string()),
+                    )
+                    .await;
+                let _ = tx
+                    .send(
+                        SseEvent::default()
+                            .event("done")
+                            .data(serde_json::json!({"session_id": &sid}).to_string()),
+                    )
+                    .await;
+                return;
             }
         }
     }
-    let max_msg = "Reached max iterations — try continuing.".to_string();
-    app.sessions
-        .lock()
-        .await
-        .entry(sid.to_string())
-        .or_default()
-        .messages
-        .push(serde_json::json!({"role": "assistant", "content": &max_msg}));
-    ChatRes {
-        session_id: sid.into(),
-        message: max_msg,
-        tool_calls: all_tools,
-        done: true,
-    }
 }
-async fn handle_chat(State(app): State<App>, Json(req): Json<ChatReq>) -> Json<ChatRes> {
-    let sid = req
-        .session_id
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    Json(agent_loop(&app, &sid, &req.message).await)
+async fn handle_chat(
+    State(app): State<App>,
+    Json(req): Json<ChatReq>,
+) -> Sse<impl futures::Stream<Item = Result<SseEvent, Infallible>>> {
+let sid=req.session_id.unwrap_or_else(||uuid::Uuid::new_v4().to_string());let(tx,rx)=tokio::sync::mpsc::channel::<SseEvent>(32);tokio::spawn(async move{agent_loop_stream(app,sid,req.message,req.working_dir,tx).await;});
+    Sse::new(ReceiverStream::new(rx).map(|e| Ok::<_, Infallible>(e)))
+        .keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(15)))
 }
 async fn handle_config_get(State(app): State<App>) -> Json<Config> {
     Json(app.config.lock().await.clone())
@@ -531,6 +546,39 @@ async fn handle_config_set(State(app): State<App>, Json(req): Json<ConfigReq>) -
         let _ = std::fs::write(&config_path, json);
     }
     Json(cfg.clone())
+}
+#[derive(Deserialize)]
+struct UndoReq {
+    session_id: String,
+}
+async fn handle_undo(State(app): State<App>, Json(req): Json<UndoReq>) -> Json<serde_json::Value> {
+    let mut backups = app.backups.lock().await;
+    if let Some(changes) = backups.remove(&req.session_id) {
+        let mut reverted = Vec::new();
+        for (path, original) in changes.into_iter().rev() {
+            match original {
+                Some(content) => {
+                    if tokio::fs::write(&path, &content).await.is_ok() {
+                        reverted.push(path);
+                    }
+                }
+                None => {
+                    let _ = tokio::fs::remove_file(&path).await;
+                    reverted.push(path);
+                }
+            }
+        }
+        Json(serde_json::json!({"status": "ok", "reverted": reverted}))
+    } else {
+        Json(serde_json::json!({"status": "no_changes", "reverted": []}))
+    }
+}
+async fn handle_accept(
+    State(app): State<App>,
+    Json(req): Json<UndoReq>,
+) -> Json<serde_json::Value> {
+    app.backups.lock().await.remove(&req.session_id);
+    Json(serde_json::json!({"status": "ok"}))
 }
 async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
     let cfg = app.config.lock().await.clone();
@@ -786,7 +834,7 @@ async fn find_gguf_path(model_dir: &Path, model_name: &str) -> Option<PathBuf> {
     None
 }
 async fn ensure_model_loaded(config: &Config) {
-    if config.provider != "ollama" && config.provider != "local" {
+    if config.provider != "ollama" {
         return;
     }
     let model_dir = if !config.model_dir.is_empty() {
@@ -1091,7 +1139,6 @@ async fn handle_hf_download(
         };
         use tokio::io::AsyncWriteExt;
         let mut stream = resp.bytes_stream();
-        use futures::StreamExt;
         let mut downloaded: u64 = 0;
         while let Some(chunk) = stream.next().await {
             match chunk {
@@ -1142,6 +1189,17 @@ async fn serve_ui() -> Html<&'static str> {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let cwd = std::env::current_dir().unwrap_or_default();
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    let src_dir: &std::path::Path = exe_path.parent().and_then(|p|p.parent()).and_then(|p|p.parent()).unwrap_or(&cwd);
+    let get_hash = |dir: &std::path::Path| std::process::Command::new("git").args(["rev-parse","HEAD"]).current_dir(dir).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    let hash_before = get_hash(src_dir);
+    let _ = std::process::Command::new("git").args(["pull","--ff-only","--quiet"]).current_dir(src_dir).status();
+    let hash_after = get_hash(src_dir);
+    if hash_before.as_deref() != hash_after.as_deref() {
+        println!("  New version detected, rebuilding...");
+        let ok = std::process::Command::new("cargo").args(["install","--path",".","--force","--quiet"]).current_dir(src_dir).status().map(|s|s.success()).unwrap_or(false);
+        if ok { println!("  Restarting..."); let _ = std::process::Command::new(&exe_path).args(std::env::args().skip(1)).status(); std::process::exit(0); }
+    }
     let home_env = dirs::home_dir()
         .map(|h| h.join(".amni").join(".env"))
         .unwrap_or_default();
@@ -1178,6 +1236,7 @@ async fn main() -> anyhow::Result<()> {
         config: Arc::new(Mutex::new(config)),
         cwd: Arc::new(Mutex::new(cwd)),
         dl_progress: Arc::new(Mutex::new(DownloadProgress::default())),
+        backups: Arc::new(Mutex::new(HashMap::new())),
     };
     let router = Router::new()
         .route("/", get(serve_ui))
@@ -1186,6 +1245,8 @@ async fn main() -> anyhow::Result<()> {
             "/api/config",
             get(handle_config_get).post(handle_config_set),
         )
+        .route("/api/undo", post(handle_undo))
+        .route("/api/accept", post(handle_accept))
         .route("/api/models", get(handle_models))
         .route("/api/dirs", get(handle_dirs))
         .route("/api/hf/search", get(handle_hf_search))
