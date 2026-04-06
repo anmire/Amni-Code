@@ -146,6 +146,20 @@ struct ModelsRes {
 struct DirsRes {
     dirs: Vec<String>,
 }
+#[derive(Serialize)]
+struct LsRes {
+    dirs: Vec<String>,
+    files: Vec<String>,
+}
+#[derive(Serialize)]
+struct ReadFileRes {
+    content: String,
+}
+#[derive(Deserialize)]
+struct WriteFileReq {
+    path: String,
+    content: String,
+}
 #[derive(Deserialize)]
 struct DirQuery {
     path: Option<String>,
@@ -806,6 +820,42 @@ async fn handle_dirs(
     dirs.sort();
     Json(DirsRes { dirs })
 }
+async fn handle_ls(
+    axum::extract::Query(q): axum::extract::Query<DirQuery>,
+    State(app): State<App>,
+) -> Json<LsRes> {
+    let base = match q.path {
+        Some(p) => p,
+        None => app.config.lock().await.working_dir.clone(),
+    };
+    let mut dirs = Vec::new();
+    let mut files = Vec::new();
+    if let Ok(mut rd) = tokio::fs::read_dir(&base).await {
+        while let Ok(Some(e)) = rd.next_entry().await {
+            let n = e.file_name().to_string_lossy().to_string();
+            if n.starts_with('.') { continue; }
+            if e.file_type().await.map(|t| t.is_dir()).unwrap_or(false) { dirs.push(n); } else { files.push(n); }
+        }
+    }
+    dirs.sort();
+    files.sort();
+    Json(LsRes { dirs, files })
+}
+async fn handle_read_file(
+    axum::extract::Query(q): axum::extract::Query<DirQuery>,
+) -> Json<ReadFileRes> {
+    let path = q.path.unwrap_or_default();
+    let content = tokio::fs::read_to_string(&path).await.unwrap_or_default();
+    Json(ReadFileRes { content })
+}
+async fn handle_write_file(
+    Json(req): Json<WriteFileReq>,
+) -> Json<serde_json::Value> {
+    match tokio::fs::write(&req.path, &req.content).await {
+        Ok(_) => Json(serde_json::json!({"ok":true})),
+        Err(e) => Json(serde_json::json!({"ok":false,"error":e.to_string()})),
+    }
+}
 async fn find_gguf_path(model_dir: &Path, model_name: &str) -> Option<PathBuf> {
     let target_gguf = format!("{}.gguf", model_name);
     let mut stack: Vec<(PathBuf, u32)> = vec![(model_dir.to_path_buf(), 0)];
@@ -1250,6 +1300,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/accept", post(handle_accept))
         .route("/api/models", get(handle_models))
         .route("/api/dirs", get(handle_dirs))
+        .route("/api/ls", get(handle_ls))
+        .route("/api/read_file", get(handle_read_file))
+        .route("/api/write_file", post(handle_write_file))
         .route("/api/hf/search", get(handle_hf_search))
         .route("/api/hf/files", get(handle_hf_files))
         .route("/api/hf/download", post(handle_hf_download))
