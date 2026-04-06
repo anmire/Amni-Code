@@ -1221,14 +1221,15 @@ async fn main() -> anyhow::Result<()> {
     let config_path = dirs::home_dir()
         .map(|h| h.join(".amni").join("config.json"))
         .unwrap_or_default();
-    let config = if config_path.exists() {
+    let mut config: Config = if config_path.exists() {
         std::fs::read_to_string(&config_path)
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_else(|| Config::default())
+            .unwrap_or_else(Config::default)
     } else {
         Config::default()
     };
+    if config.working_dir.is_empty() { config.working_dir = cwd.to_string_lossy().into(); }
     println!("\n  Amni-Code v1.1.0 — AI Coding Agent");
     println!("  Working dir: {}", cwd.display());
     let app = App {
@@ -1282,6 +1283,7 @@ async fn main() -> anyhow::Result<()> {
             .unwrap();
         let _webview = WebViewBuilder::new()
             .with_url("http://localhost:3000")
+            .with_devtools(true)
             .build(&window)
             .unwrap();
         event_loop.run(move |event, _, control_flow| {

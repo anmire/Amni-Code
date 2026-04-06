@@ -579,7 +579,7 @@ async function loadConfig(){
     $('#cfg-key').value = c.api_key;
     $('#cfg-url').value = c.base_url;
 $('#cfg-dir').value=c.working_dir;$('#cwd-path').textContent=c.working_dir||'unknown';if(c.model_dir)$('#cfg-model-dir').value=c.model_dir;if(c.auto_approve)$('#cfg-auto').classList.add('on');else $('#cfg-auto').classList.remove('on');if(c.api_key)$('#key-src').textContent='(from ENV)';$('#model-dir-section').style.display=(c.provider==='ollama'||c.provider==='local')?'block':'none';$('#api-key-label').style.display=(c.provider==='ollama'||c.provider==='local')?'none':'block';$('#cfg-key').style.display=(c.provider==='ollama'||c.provider==='local')?'none':'block';await loadModels(c.model);loadDirs(c.working_dir);
-  } catch(e){}
+  } catch(e){console.error('loadConfig:',e);}
 }
 async function loadModels(current){
   try{
