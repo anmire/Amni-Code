@@ -107,10 +107,8 @@ a:hover{opacity:.8}
 .diff-sign{width:16px;text-align:center;flex-shrink:0;font-weight:700;padding:0 2px;line-height:1.6}
 .diff-row.add .diff-sign{color:#3ddc84}
 .diff-row.rm .diff-sign{color:#ff5c5c}
-.diff-code{flex:1;padding:0 8px;white-space:pre;overflow-x:auto;font-family:var(--font);line-height:1.6}
+.diff-code{flex:1;padding:0 8px;white-space:pre;overflow-x:auto;font-family:var(--font);line-height:1.6;tab-size:4}
 .diff-row.rm .diff-code{text-decoration:line-through;opacity:.7}
-.ws-dot{color:var(--dim);opacity:.3}
-.ws-tab{color:var(--dim);opacity:.3}
 .diff-action-btn{font-family:var(--font);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border);transition:all .15s}
 .diff-action-btn.undo{background:transparent;color:#ff5c5c;border-color:#ff5c5c33}
 .diff-action-btn.undo:hover{background:#ff5c5c22;border-color:#ff5c5c}
@@ -369,7 +367,21 @@ function addMsg(role, content, tools){
     toolHtml += `<button class="tool-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">&#9656; details</button>`;
     toolHtml += `<div class="tool-detail" style="display:none">`;
     tools.forEach(t => {
-      toolHtml += `\n&#9472;&#9472;&#9472; ${t.tool} &#9472;&#9472;&#9472;\nInput: ${JSON.stringify(t.input, null, 2)}\nOutput: ${t.output.substring(0, 500)}${t.output.length > 500 ? '...' : ''}\n`;
+      if(t.tool === 'edit_file'){
+        toolHtml += `<div style="margin:4px 0;color:var(--text2)">&#9472;&#9472; ${escHtml(t.tool)} &#8250; <strong>${escHtml(t.input.path||'')}</strong></div>`;
+        const oldLines = (t.input.old_string||'').split('\n'), newLines = (t.input.new_string||'').split('\n');
+        oldLines.forEach(l => { toolHtml += `<div style="color:#ff5c5c">- ${escHtml(l)}</div>`; });
+        newLines.forEach(l => { toolHtml += `<div style="color:#3ddc84">+ ${escHtml(l)}</div>`; });
+      } else if(t.tool === 'write_file'){
+        toolHtml += `<div style="margin:4px 0;color:var(--text2)">&#9472;&#9472; ${escHtml(t.tool)} &#8250; <strong>${escHtml(t.input.path||'')}</strong></div>`;
+        const lines = (t.input.content||'').split('\n').slice(0,30);
+        lines.forEach(l => { toolHtml += `<div style="color:#3ddc84">+ ${escHtml(l)}</div>`; });
+        if((t.input.content||'').split('\n').length > 30) toolHtml += `<div style="color:var(--dim)">... ${(t.input.content||'').split('\n').length - 30} more lines</div>`;
+      } else {
+        toolHtml += `<div style="margin:4px 0;color:var(--text2)">&#9472;&#9472; ${escHtml(t.tool)} &#9472;&#9472;</div>`;
+        toolHtml += `<div>${escHtml(JSON.stringify(t.input,null,2).substring(0,300))}</div>`;
+        if(t.output) toolHtml += `<div style="color:var(--dim)">${escHtml(t.output.substring(0,300))}${t.output.length>300?'...':''}</div>`;
+      }
       if(t.tool === 'write_file' || t.tool === 'edit_file') parseDiff(t);
     });
     toolHtml += '</div></div>';
@@ -397,11 +409,7 @@ function parseDiff(tc){
 function renderDiffLine(text){
   if(!text && text !== '') return '&nbsp;';
   let s = escHtml(text);
-  const m = s.match(/^(\s+)/);
-  if(m){
-    const ws = m[1].replace(/ /g,'<span class="ws-dot">\u00b7</span>').replace(/\t/g,'<span class="ws-tab">\u2192\t</span>');
-    s = ws + s.substring(m[1].length);
-  }
+
   s = s
     .replace(/(\/\/.*|#[^{].*)/g,'<span style="color:#6a9955;font-style:italic">$1</span>')
     .replace(/(&quot;[^&]*?&quot;)/g,'<span style="color:#ce9178">$1</span>')
