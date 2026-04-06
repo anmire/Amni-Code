@@ -837,11 +837,7 @@ function requestAISuggestion() {
   if (!monacoEditor || !currentEditorFile) return;
   const content = monacoEditor.getValue();
   const cursor = monacoEditor.getPosition();
-  const prompt = `AI suggestion/completion for ${currentEditorFile} around line ${cursor.lineNumber}:
-```
-${content}
-```
-`;
+  const prompt = `AI suggestion/completion for ${currentEditorFile} around line ${cursor.lineNumber}:\n\`\`\`\n${content}\n\`\`\`\n`;
   $('#input').value = prompt;
   $('#send').click();
   toggleEditor(); // Maybe hide editor so they can see chat, or stay open? Let's leave open
