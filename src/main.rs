@@ -1189,8 +1189,8 @@ async fn serve_ui() -> Html<&'static str> {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let cwd = std::env::current_dir().unwrap_or_default();
+    let src_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let exe_path = std::env::current_exe().unwrap_or_default();
-    let src_dir: &std::path::Path = exe_path.parent().and_then(|p|p.parent()).and_then(|p|p.parent()).unwrap_or(&cwd);
     let get_hash = |dir: &std::path::Path| std::process::Command::new("git").args(["rev-parse","HEAD"]).current_dir(dir).output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
     let hash_before = get_hash(src_dir);
     let _ = std::process::Command::new("git").args(["pull","--ff-only","--quiet"]).current_dir(src_dir).status();
