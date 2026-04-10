@@ -1,18 +1,4 @@
-use axum::{
-    extract::{Query, State},
-    response::{
-        sse::{Event as SseEvent, KeepAlive, Sse},
-        Html, Json,
-    },
-    routing::{get, post},
-    Router,
-};
-use futures::StreamExt;
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, convert::Infallible, path::{Path, PathBuf}, process::Stdio, sync::Arc};
-use tokio::sync::Mutex;
-use tokio_stream::wrappers::ReceiverStream;
-use tower_http::cors::CorsLayer;
+use axum::{extract::{Query,State},response::{sse::{Event as SseEvent,KeepAlive,Sse},Html,Json},routing::{get,post},Router};use futures::StreamExt;use serde::{Deserialize,Serialize};use std::{collections::HashMap,convert::Infallible,path::{Path,PathBuf},process::Stdio,sync::{Arc,atomic::AtomicBool}};use tokio::sync::{Mutex,broadcast};use tokio_stream::wrappers::ReceiverStream;use tower_http::cors::CorsLayer;
 #[derive(Clone, Default, Serialize)]
 struct DownloadProgress {
     repo: String,
@@ -22,14 +8,7 @@ struct DownloadProgress {
     done: bool,
     error: String,
 }
-#[derive(Clone)]
-struct App {
-    sessions: Arc<Mutex<HashMap<String, Session>>>,
-    config: Arc<Mutex<Config>>,
-    cwd: Arc<Mutex<PathBuf>>,
-    dl_progress: Arc<Mutex<DownloadProgress>>,
-    backups: Arc<Mutex<HashMap<String, Vec<(String, Option<String>)>>>>,
-}
+#[derive(Clone)]struct App{sessions:Arc<Mutex<HashMap<String,Session>>>,config:Arc<Mutex<Config>>,cwd:Arc<Mutex<PathBuf>>,dl_progress:Arc<Mutex<DownloadProgress>>,backups:Arc<Mutex<HashMap<String,Vec<(String,Option<String>)>>>>,interrupts:Arc<Mutex<HashMap<String,Arc<AtomicBool>>>>,amni_proc:Arc<Mutex<Option<tokio::process::Child>>>,server_log_tx:Arc<broadcast::Sender<String>>}
 #[derive(Clone,Default)]struct Session{messages:Vec<serde_json::Value>,working_dir:String}
 #[derive(Clone, Serialize, Deserialize)]
 struct Config {
@@ -72,6 +51,7 @@ impl Default for Config {
             ),
             "ollama" => (String::new(), "http://localhost:11434".to_string()),
             "local" => (String::new(), "http://localhost:11434".to_string()),
+            "amni" => (String::new(), "http://127.0.0.1:8787".to_string()),
             _ => (
                 "grok-4-1-fast-reasoning".to_string(),
                 "https://api.x.ai".to_string(),
@@ -112,7 +92,7 @@ const TOOLS_JSON: &str = r#"[
   {"type":"function","function":{"name":"list_directory","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
   {"type":"function","function":{"name":"search_files","description":"Search for text across files","parameters":{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}},"required":["query"]}}}
 ]"#;
-const SYSTEM_PROMPT: &str = "You are Amni-Code, an expert AI coding agent. Your working directory is: {CWD}\n\nCRITICAL RULES:\n1. ALWAYS chain multiple actions together. Do NOT stop after a single tool call — complete the entire task in one go. For example: list directory → read files → make edits → run tests, all in sequence without pausing.\n2. NEVER ask the user for information you can discover with tools. If the user asks about code or a project, IMMEDIATELY call list_directory and read_file to explore.\n3. When asked about a codebase: start by calling list_directory, then read key files (README, main entry points, configs) to build understanding.\n4. When asked to create or modify code: read relevant files first, then make ALL needed changes, then verify with builds/tests.\n5. When debugging: read code → understand the issue → make targeted fixes → run tests to verify. Do NOT stop partway through.\n6. Execute all steps in sequence — don't describe what you would do, just do it. Keep going until the task is fully complete.\n7. Be concise but thorough.\n8. Use the working directory as base for relative paths.\n9. After making changes, always verify they work (run builds, tests, or re-read the changed files).\n10. If a tool call fails, try to fix the issue and retry — don't give up after one error.\n\nAvailable tools: read_file, write_file, edit_file, run_command, list_directory, search_files";
+const SYSTEM_PROMPT:&str="You are Amni-Code,an expert AI coding agent.Your working dir is:{CWD}\n\nCRITICAL:chain actions,NEVER stop after 1 tool,explore w/tools first,read key files before edits,verify after changes,concise,base paths on cwd,fix errors+retry.\n\nTools:read_file,write_file,edit_file,run_command,list_directory,search_files\n\nSupport /interrupt (stop gen) & steering (append mid-gen context).";
 #[derive(Deserialize)]struct ChatReq{message:String,session_id:Option<String>,working_dir:Option<String>}
 #[derive(Serialize)]
 struct ChatRes {
@@ -325,6 +305,13 @@ async fn llm_request(
     let (url, key_header) = match config.provider.as_str() {
         "ollama" => (format!("{}/v1/chat/completions", config.base_url), None),
         "local" => (format!("{}/v1/chat/completions", config.base_url), None),
+        "amni" => (
+            format!(
+                "{}/v1/chat/completions",
+                config.base_url.trim_end_matches('/')
+            ),
+            None,
+        ),
         "openai" => (
             format!(
                 "{}/v1/chat/completions",
@@ -430,9 +417,9 @@ fn compact_context(messages: &mut Vec<serde_json::Value>) {
     }));
     messages.extend(recent);
 }
-async fn agent_loop_stream(app:App,sid:String,user_msg:String,wd:Option<String>,tx:tokio::sync::mpsc::Sender<SseEvent>){let config=app.config.lock().await.clone();ensure_model_loaded(&config).await;let cwd=app.cwd.lock().await.clone();let cwd_path=if let Some(s)=app.sessions.lock().await.get(&sid){if!s.working_dir.is_empty(){PathBuf::from(&s.working_dir)}else{cwd.clone()}}else{wd.as_ref().map_or(cwd.clone(),|w|PathBuf::from(w))};{let mut sessions=app.sessions.lock().await;let session=sessions.entry(sid.clone()).or_default();if session.messages.is_empty(){let sys=SYSTEM_PROMPT.replace("{CWD}",&cwd_path.display().to_string());session.messages.push(serde_json::json!({"role":"system","content":sys}));if let Some(w)=wd{session.working_dir=w.clone();}}session.messages.push(serde_json::json!({"role":"user","content":&user_msg}));compact_context(&mut session.messages);}
+async fn agent_loop_stream(app:App,sid:String,user_msg:String,wd:Option<String>,tx:tokio::sync::mpsc::Sender<SseEvent>){let config=app.config.lock().await.clone();ensure_model_loaded(&config).await;let cwd=app.cwd.lock().await.clone();let cwd_path=if let Some(s)=app.sessions.lock().await.get(&sid){if!s.working_dir.is_empty(){PathBuf::from(&s.working_dir)}else{cwd.clone()}}else{wd.as_ref().map_or(cwd.clone(),|w|PathBuf::from(w))};{let mut sessions=app.sessions.lock().await;let session=sessions.entry(sid.clone()).or_default();if session.messages.is_empty(){let sys=SYSTEM_PROMPT.replace("{CWD}",&cwd_path.display().to_string());session.messages.push(serde_json::json!({"role":"system","content":sys}));if let Some(w)=wd{session.working_dir=w.clone();}}session.messages.push(serde_json::json!({"role":"user","content":&user_msg}));compact_context(&mut session.messages);}let interrupt_flag={let mut interrupts=app.interrupts.lock().await;let flag=interrupts.entry(sid.clone()).or_insert_with(||Arc::new(AtomicBool::new(false))).clone();flag.store(false,std::sync::atomic::Ordering::Relaxed);flag};
 let _=tx.send(SseEvent::default().event("session").data(serde_json::json!({"session_id":&sid}).to_string())).await;
-let mut it=0;while it<100{it+=1;let messages=app.sessions.lock().await.get(&sid).map(|s|s.messages.clone()).unwrap_or_default();let _=tx.send(SseEvent::default().event("thinking").data("{}")).await;match llm_call(&config,&messages).await{Ok((raw_msg,tool_calls))=>{if tool_calls.is_empty(){let content=raw_msg["content"].as_str().unwrap_or("").to_string();app.sessions.lock().await.entry(sid.clone()).or_default().messages.push(raw_msg);let _=tx.send(SseEvent::default().event("message").data(serde_json::json!({"message":&content}).to_string())).await;let _=tx.send(SseEvent::default().event("done").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}
+let mut it=0;while it<100{if interrupt_flag.load(std::sync::atomic::Ordering::Relaxed){let _=tx.send(SseEvent::default().event("interrupted").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}it+=1;let messages=app.sessions.lock().await.entry(sid.clone()).or_default().messages.clone();match llm_call(&config,&messages).await{Ok((raw_msg,tool_calls))=>{if tool_calls.is_empty(){let content=raw_msg["content"].as_str().unwrap_or("").to_string();app.sessions.lock().await.entry(sid.clone()).or_default().messages.push(raw_msg);let _=tx.send(SseEvent::default().event("message").data(serde_json::json!({"message":&content}).to_string())).await;let _=tx.send(SseEvent::default().event("done").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}
                 app.sessions
                     .lock()
                     .await
@@ -587,12 +574,198 @@ async fn handle_undo(State(app): State<App>, Json(req): Json<UndoReq>) -> Json<s
         Json(serde_json::json!({"status": "no_changes", "reverted": []}))
     }
 }
-async fn handle_accept(
-    State(app): State<App>,
-    Json(req): Json<UndoReq>,
-) -> Json<serde_json::Value> {
+async fn handle_accept(State(app): State<App>, Json(req): Json<UndoReq>) -> Json<serde_json::Value> {
     app.backups.lock().await.remove(&req.session_id);
     Json(serde_json::json!({"status": "ok"}))
+}
+#[derive(Deserialize)]
+struct SteerReq {
+    session_id: String,
+    message: String,
+}
+async fn handle_steer(State(app): State<App>, Json(req): Json<SteerReq>) -> Json<serde_json::Value> {
+    let mut sessions = app.sessions.lock().await;
+    if let Some(session) = sessions.get_mut(&req.session_id) {
+        session.messages.push(serde_json::json!({"role": "user", "content": format!("[STEER: {}]", req.message)}));
+        compact_context(&mut session.messages);
+        Json(serde_json::json!({"status": "steered"}))
+    } else {
+        Json(serde_json::json!({"status": "no_session"}))
+    }
+}
+#[derive(Deserialize)]
+struct InterruptReq {
+    session_id: String,
+}
+async fn handle_interrupt(State(app): State<App>, Json(req): Json<InterruptReq>) -> Json<serde_json::Value> {
+    let interrupts = app.interrupts.lock().await;
+    if let Some(flag) = interrupts.get(&req.session_id) {
+        flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        Json(serde_json::json!({"status": "interrupted"}))
+    } else {
+        Json(serde_json::json!({"status": "no_session"}))
+    }
+}
+fn find_amni_ai_dir(config: &Config) -> Option<PathBuf> {
+    if let Ok(d) = std::env::var("AMNI_AI_DIR") {
+        let p = PathBuf::from(d);
+        if p.join("amni").join("web").join("server.py").exists() { return Some(p); }
+    }
+    let mut search_parents: Vec<PathBuf> = Vec::new();
+    let working = PathBuf::from(&config.working_dir);
+    if let Some(p) = working.parent() { search_parents.push(p.to_path_buf()); }
+    if let Some(gp) = working.parent().and_then(|p| p.parent()) { search_parents.push(gp.to_path_buf()); }
+    if let Ok(cur) = std::env::current_dir() {
+        if let Some(p) = cur.parent() { search_parents.push(p.to_path_buf()); }
+        search_parents.push(cur);
+    }
+    // All case variants for the directory name
+    let names = ["Amni-Ai", "Amni-AI", "amni-ai", "amni_ai", "AmniAI"];
+    for parent in &search_parents {
+        for name in &names {
+            let c = parent.join(name);
+            if c.join("amni").join("web").join("server.py").exists() { return Some(c); }
+        }
+    }
+    None
+}
+async fn handle_server_status(State(app): State<App>) -> Json<serde_json::Value> {
+    let cfg = app.config.lock().await.clone();
+    let local_providers = ["amni", "local", "ollama"];
+    if !local_providers.contains(&cfg.provider.as_str()) {
+        return Json(serde_json::json!({"running": true, "applicable": false}));
+    }
+    let base = if cfg.provider == "amni" { "http://127.0.0.1:8787".to_string() } else { cfg.base_url.trim_end_matches('/').to_string() };
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(2)).build().unwrap_or_default();
+    let running = client.get(format!("{}/health", base)).send().await.map(|r| r.status().is_success()).unwrap_or(false);
+    let proc_running = app.amni_proc.lock().await.is_some();
+    Json(serde_json::json!({"running": running, "starting": proc_running && !running, "applicable": true, "provider": cfg.provider}))
+}
+async fn handle_server_start(State(app): State<App>) -> Json<serde_json::Value> {
+    let cfg = app.config.lock().await.clone();
+    if cfg.provider != "amni" && cfg.provider != "local" {
+        return Json(serde_json::json!({"status": "not_applicable"}));
+    }
+    let base = if cfg.provider == "amni" { "http://127.0.0.1:8787".to_string() } else { cfg.base_url.trim_end_matches('/').to_string() };
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(2)).build().unwrap_or_default();
+    if client.get(format!("{}/health", base)).send().await.map(|r| r.status().is_success()).unwrap_or(false) {
+        return Json(serde_json::json!({"status": "already_running"}));
+    }
+    // Resolve command before acquiring the proc lock (avoid holding mutex across awaits)
+    if app.amni_proc.lock().await.is_some() {
+        return Json(serde_json::json!({"status": "already_starting"}));
+    }
+    let tx = app.server_log_tx.clone();
+    enum LaunchTarget { LlamaServer(PathBuf, u16), AmniAI(PathBuf) }
+    let target: LaunchTarget = if cfg.provider == "local" {
+        let model_dir = if !cfg.model_dir.is_empty() {
+            Some(PathBuf::from(&cfg.model_dir))
+        } else {
+            auto_detect_model_dir(&cfg.working_dir).await
+        };
+        let port = cfg.base_url.split(':').last().and_then(|p| p.parse::<u16>().ok()).unwrap_or(8787);
+        let gguf = if let Some(ref d) = model_dir {
+            find_gguf_path(d, &cfg.model).await
+        } else { None };
+        if let Some(gpath) = gguf {
+            LaunchTarget::LlamaServer(gpath, port)
+        } else {
+            match find_amni_ai_dir(&cfg) {
+                Some(d) => LaunchTarget::AmniAI(d),
+                None => return Json(serde_json::json!({"status": "error", "message": "No GGUF model found for llama-server and Amni-AI directory not found. Configure a model directory or set AMNI_AI_DIR."})),
+            }
+        }
+    } else {
+        match find_amni_ai_dir(&cfg) {
+            Some(d) => LaunchTarget::AmniAI(d),
+            None => return Json(serde_json::json!({"status": "error", "message": "Could not find Amni-AI directory. Set AMNI_AI_DIR env var or place Amni-Ai alongside Amni-Code."})),
+        }
+    };
+    let target_dir_str = match &target {
+        LaunchTarget::LlamaServer(p, _) => p.display().to_string(),
+        LaunchTarget::AmniAI(p) => p.display().to_string(),
+    };
+    // Now acquire the lock to actually store the process
+    let mut proc_guard = app.amni_proc.lock().await;
+    if proc_guard.is_some() {
+        return Json(serde_json::json!({"status": "already_starting"}));
+    }
+    let mut cmd = match target {
+        LaunchTarget::LlamaServer(gpath, port) => {
+            let _ = tx.send(format!("Starting llama-server: {} --port {}", gpath.display(), port));
+            let mut c = tokio::process::Command::new("llama-server");
+            c.args(["--model", &gpath.to_string_lossy(), "--port", &port.to_string(), "--ctx-size", "8192"])
+             .stdout(Stdio::piped()).stderr(Stdio::piped());
+            c
+        }
+        LaunchTarget::AmniAI(d) => {
+            let _ = tx.send(format!("Starting Amni-AI from: {}", d.display()));
+            let mut c = tokio::process::Command::new("python");
+            c.args(["-m", "amni.web.server"]).current_dir(&d).stdout(Stdio::piped()).stderr(Stdio::piped());
+            c
+        }
+    };
+    match cmd.spawn() {
+        Ok(mut child) => {
+            let stdout = child.stdout.take();
+            let stderr = child.stderr.take();
+            *proc_guard = Some(child);
+            drop(proc_guard);
+            if let Some(out) = stdout {
+                let tx2 = tx.clone();
+                tokio::spawn(async move {
+                    use tokio::io::{AsyncBufReadExt, BufReader};
+                    let mut lines = BufReader::new(out).lines();
+                    while let Ok(Some(line)) = lines.next_line().await { let _ = tx2.send(line); }
+                });
+            }
+            if let Some(err) = stderr {
+                let tx3 = tx.clone();
+                tokio::spawn(async move {
+                    use tokio::io::{AsyncBufReadExt, BufReader};
+                    let mut lines = BufReader::new(err).lines();
+                    while let Ok(Some(line)) = lines.next_line().await { let _ = tx3.send(format!("[err] {}", line)); }
+                });
+            }
+            let tx4 = tx.clone();
+            tokio::spawn(async move {
+                let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(2)).build().unwrap_or_default();
+                for i in 0..90u32 {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    if client.get(format!("{}/health", base)).send().await.map(|r| r.status().is_success()).unwrap_or(false) {
+                        let _ = tx4.send("__SERVER_READY__".to_string());
+                        return;
+                    }
+                    if i % 5 == 4 { let _ = tx4.send(format!("Waiting for server... ({}s)", (i+1)*2)); }
+                }
+                let _ = tx4.send("__SERVER_TIMEOUT__".to_string());
+            });
+            Json(serde_json::json!({"status": "starting", "dir": target_dir_str}))
+        }
+        Err(e) => Json(serde_json::json!({"status": "error", "message": e.to_string()}))
+    }
+}
+async fn handle_server_log(State(app): State<App>) -> Sse<impl futures::Stream<Item = Result<SseEvent, Infallible>> + Send + 'static> {
+    let mut bcast_rx = app.server_log_tx.subscribe();
+    let (tx, rx) = tokio::sync::mpsc::channel::<SseEvent>(128);
+    tokio::spawn(async move {
+        loop {
+            match bcast_rx.recv().await {
+                Ok(line) if line == "__SERVER_READY__" => {
+                    let _ = tx.send(SseEvent::default().event("ready").data("Server ready")).await;
+                    break;
+                }
+                Ok(line) if line == "__SERVER_TIMEOUT__" => {
+                    let _ = tx.send(SseEvent::default().event("timeout").data("Server failed to start after 3 minutes")).await;
+                    break;
+                }
+                Ok(line) => { let _ = tx.send(SseEvent::default().data(line)).await; }
+                Err(broadcast::error::RecvError::Closed) => break,
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            }
+        }
+    });
+    Sse::new(ReceiverStream::new(rx).map(|e| Ok::<_, Infallible>(e))).keep_alive(KeepAlive::default())
 }
 async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
     let cfg = app.config.lock().await.clone();
@@ -794,6 +967,43 @@ async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
             .iter()
             .map(|s| s.to_string()),
         );
+    } else if cfg.provider == "amni" {
+        // Query Amni-AI server (OpenAI-compat API at 127.0.0.1:8787)
+        let amni_base = if base.contains("8787") || base.contains("amni") {
+            base.clone()
+        } else {
+            "http://127.0.0.1:8787".to_string()
+        };
+        match client.get(format!("{}/v1/models", amni_base)).send().await {
+            Ok(resp) => {
+                if let Ok(json) = resp.json::<serde_json::Value>().await {
+                    if let Some(arr) = json["data"].as_array() {
+                        for m in arr {
+                            if let Some(id) = m["id"].as_str() {
+                                models.push(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => tracing::warn!("Amni-AI /v1/models error: {}", e),
+        }
+        if models.is_empty() {
+            // Fallback: known Adam configs + Gemma PTEX
+            models.extend(
+                [
+                    "amni-a1",
+                    "adam-nano", "adam-micro", "adam-mini", "adam-tiny",
+                    "adam-small", "adam-medium", "adam-large",
+                    "adam-1", "adam-1b", "adam-7b", "adam-14b",
+                    "adam-24b", "adam-70b", "adam-140b", "adam-gemma-31b",
+                    "gemma-e2b-ptex", "gemma-e2b-ptex-gf17-compressed",
+                    "gemma-4-31B-ptex", "gemma-4-31B", "gemma-4-E2B-it",
+                ]
+                .iter()
+                .map(|s| s.to_string()),
+            );
+        }
     }
     tracing::info!("Model discovery found {} models", models.len());
     Json(ModelsRes { models })
@@ -859,29 +1069,41 @@ async fn handle_write_file(
 async fn find_gguf_path(model_dir: &Path, model_name: &str) -> Option<PathBuf> {
     let target_gguf = format!("{}.gguf", model_name);
     let mut stack: Vec<(PathBuf, u32)> = vec![(model_dir.to_path_buf(), 0)];
+    let mut best_match = None;
+    let root_name = model_dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
     while let Some((current_dir, depth)) = stack.pop() {
         if depth > 3 {
             continue;
         }
         if let Ok(mut rd) = tokio::fs::read_dir(&current_dir).await {
+            let dname = current_dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
             while let Ok(Some(e)) = rd.next_entry().await {
                 let path = e.path();
                 if path.is_dir() {
-                    let dname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    if !dname.starts_with('.')
-                        && dname != "palace_textures"
-                        && dname != "__pycache__"
-                        && dname != "node_modules"
+                    let child_dname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if !child_dname.starts_with('.')
+                        && child_dname != "palace_textures"
+                        && child_dname != "__pycache__"
+                        && child_dname != "node_modules"
                     {
                         stack.push((path, depth + 1));
                     }
-                } else if path.file_name().and_then(|n| n.to_str()) == Some(target_gguf.as_str()) {
-                    return Some(path);
+                } else if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
+                    if fname == target_gguf.as_str() {
+                        return Some(path);
+                    }
+                    if let Some(stem) = fname.strip_suffix(".gguf") {
+                        if let Some(id) = gguf_model_id(stem, &dname, &root_name) {
+                            if id == model_name {
+                                best_match = Some(path.clone());
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-    None
+    best_match
 }
 async fn ensure_model_loaded(config: &Config) {
     if config.provider != "ollama" {
@@ -965,33 +1187,91 @@ async fn auto_detect_model_dir(working_dir: &str) -> Option<PathBuf> {
     }
     None
 }
+/// For a GGUF stem like "model-00001-of-00004" returns Some("model") for shard 1, None for others.
+/// For unsplit files like "Qwen3.5-9B-Q8_0" returns Some("Qwen3.5-9B-Q8_0").
+fn gguf_model_id(stem: &str, dir_name: &str, root_name: &str) -> Option<String> {
+    // Detect pattern: <base>[-_.]<NNNNN>-of-<MMMMM>
+    if let Some(of_pos) = stem.rfind("-of-") {
+        let after_of = &stem[of_pos + 4..];
+        if !after_of.is_empty() && after_of.chars().all(|c| c.is_ascii_digit()) {
+            let before_of = &stem[..of_pos];
+            let mut shard_len = 0;
+            for c in before_of.chars().rev() {
+                if c.is_ascii_digit() {
+                    shard_len += 1;
+                } else {
+                    break;
+                }
+            }
+            if shard_len > 0 {
+                let sep_idx = before_of.len() - shard_len;
+                if sep_idx > 0 {
+                    let sep = before_of[sep_idx - 1..sep_idx].chars().next().unwrap();
+                    if sep == '-' || sep == '_' || sep == '.' {
+                        let shard_str = &before_of[sep_idx..];
+                        let shard_n: u32 = shard_str.parse().unwrap_or(99);
+                        let mut base = before_of[..sep_idx - 1].to_string();
+                        if base == "model" || base.is_empty() {
+                            if !dir_name.is_empty() && dir_name != root_name {
+                                base = dir_name.to_string();
+                            }
+                        }
+                        return if shard_n <= 1 { Some(base) } else { None }; // skip non-first shards
+                    }
+                }
+            }
+        }
+    }
+    Some(stem.to_string())
+}
 async fn collect_models(dir: &PathBuf) -> Vec<String> {
     let mut models = Vec::new();
     let mut stack: Vec<(PathBuf, u32)> = vec![(dir.clone(), 0)];
+    let root_name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
     while let Some((current_dir, depth)) = stack.pop() {
-        if depth > 3 {
-            continue;
-        }
+        if depth > 3 { continue; }
         if let Ok(mut rd) = tokio::fs::read_dir(&current_dir).await {
+            // Collect all entries first so we can check for safetensors before deciding
+            let dname = current_dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let mut subdirs: Vec<PathBuf> = Vec::new();
+            let mut gguf_stems: Vec<String> = Vec::new();
+            let mut has_safetensors = false;
             while let Ok(Some(e)) = rd.next_entry().await {
                 let path = e.path();
+                let fname = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
                 if path.is_dir() {
-                    let dname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    if !dname.starts_with('.')
-                        && dname != "palace_textures"
-                        && dname != "__pycache__"
-                        && dname != "node_modules"
-                    {
-                        stack.push((path, depth + 1));
+                    if fname.starts_with('.') || fname == "__pycache__" || fname == "node_modules" || fname == "palace_textures" { continue; }
+                    // PTEX directory
+                    let manifest = path.join("manifest.json");
+                    if manifest.exists() {
+                        if let Ok(s) = tokio::fs::read_to_string(&manifest).await {
+                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&s) {
+                                if j["format"].as_str() == Some("ptex") {
+                                    if !models.contains(&fname) { models.push(fname); }
+                                    continue;
+                                }
+                            }
+                        }
                     }
-                } else if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
-                    if let Some(name) = fname
-                        .strip_suffix(".gguf")
-                        .or_else(|| fname.strip_suffix(".safetensors"))
-                    {
-                        models.push(name.to_string());
+                    subdirs.push(path);
+                } else if fname.ends_with(".safetensors") {
+                    has_safetensors = true;
+                } else if let Some(stem) = fname.strip_suffix(".gguf") {
+                    gguf_stems.push(stem.to_string());
+                }
+            }
+            if has_safetensors {
+                if !dname.is_empty() && dname != root_name {
+                    if !models.contains(&dname) { models.push(dname); }
+                }
+                // Don't recurse — this entire dir is one model
+            } else {
+                for stem in gguf_stems {
+                    if let Some(id) = gguf_model_id(&stem, &dname, &root_name) {
+                        if !models.contains(&id) { models.push(id); }
                     }
                 }
+                for sub in subdirs { stack.push((sub, depth + 1)); }
             }
         }
     }
@@ -1282,13 +1562,8 @@ async fn main() -> anyhow::Result<()> {
     if config.working_dir.is_empty() { config.working_dir = cwd.to_string_lossy().into(); }
     println!("\n  Amni-Code v1.1.0 — AI Coding Agent");
     println!("  Working dir: {}", cwd.display());
-    let app = App {
-        sessions: Arc::new(Mutex::new(HashMap::new())),
-        config: Arc::new(Mutex::new(config)),
-        cwd: Arc::new(Mutex::new(cwd)),
-        dl_progress: Arc::new(Mutex::new(DownloadProgress::default())),
-        backups: Arc::new(Mutex::new(HashMap::new())),
-    };
+    let (server_log_tx,_)=broadcast::channel::<String>(512);
+    let app=App{sessions:Arc::new(Mutex::new(HashMap::new())),config:Arc::new(Mutex::new(config)),cwd:Arc::new(Mutex::new(cwd)),dl_progress:Arc::new(Mutex::new(DownloadProgress::default())),backups:Arc::new(Mutex::new(HashMap::new())),interrupts:Arc::new(Mutex::new(HashMap::new())),amni_proc:Arc::new(Mutex::new(None)),server_log_tx:Arc::new(server_log_tx)};
     let router = Router::new()
         .route("/", get(serve_ui))
         .route("/api/chat", post(handle_chat))
@@ -1298,6 +1573,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/undo", post(handle_undo))
         .route("/api/accept", post(handle_accept))
+        .route("/api/interrupt", post(handle_interrupt))
+        .route("/api/steer", post(handle_steer))
+        .route("/api/server-start", post(handle_server_start))
+        .route("/api/server-log", get(handle_server_log))
+        .route("/api/server-status", get(handle_server_status))
         .route("/api/models", get(handle_models))
         .route("/api/dirs", get(handle_dirs))
         .route("/api/ls", get(handle_ls))
