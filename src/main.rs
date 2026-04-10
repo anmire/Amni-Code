@@ -1105,6 +1105,54 @@ async fn find_gguf_path(model_dir: &Path, model_name: &str) -> Option<PathBuf> {
     }
     best_match
 }
+async fn find_model_path_for_ollama(model_dir: &Path, model_name: &str) -> Option<PathBuf> {
+    let target_gguf = format!("{}.gguf", model_name);
+    let mut stack: Vec<(PathBuf, u32)> = vec![(model_dir.to_path_buf(), 0)];
+    let mut best_match = None;
+    let root_name = model_dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    while let Some((current_dir, depth)) = stack.pop() {
+        if depth > 3 {
+            continue;
+        }
+        if let Ok(mut rd) = tokio::fs::read_dir(&current_dir).await {
+            let dname = current_dir.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let mut has_safetensors = false;
+            let mut subdirs = Vec::new();
+            while let Ok(Some(e)) = rd.next_entry().await {
+                let path = e.path();
+                if path.is_dir() {
+                    let child_dname = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if !child_dname.starts_with('.')
+                        && child_dname != "palace_textures"
+                        && child_dname != "__pycache__"
+                        && child_dname != "node_modules"
+                    {
+                        subdirs.push((path, depth + 1));
+                    }
+                } else if let Some(fname) = path.file_name().and_then(|n| n.to_str()) {
+                    if fname.ends_with(".safetensors") {
+                        has_safetensors = true;
+                    }
+                    if fname == target_gguf.as_str() {
+                        return Some(path);
+                    }
+                    if let Some(stem) = fname.strip_suffix(".gguf") {
+                        if let Some(id) = gguf_model_id(stem, &dname, &root_name) {
+                            if id == model_name {
+                                best_match = Some(path.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            if has_safetensors && dname == model_name && dname != root_name {
+                return Some(current_dir);
+            }
+            stack.extend(subdirs);
+        }
+    }
+    best_match
+}
 async fn ensure_model_loaded(config: &Config) {
     if config.provider != "ollama" {
         return;
@@ -1118,14 +1166,14 @@ async fn ensure_model_loaded(config: &Config) {
         Some(d) => d,
         None => return,
     };
-    let gguf_path = match find_gguf_path(&dir, &config.model).await {
+    let model_path = match find_model_path_for_ollama(&dir, &config.model).await {
         Some(p) => p,
         None => return,
     };
     tracing::info!(
-        "Model '{}' has GGUF file: {:?} — checking Ollama",
+        "Model '{}' has file/dir: {:?} — checking Ollama",
         config.model,
-        gguf_path
+        model_path
     );
     let base = config.base_url.trim_end_matches('/');
     let client = reqwest::Client::builder()
@@ -1146,9 +1194,9 @@ async fn ensure_model_loaded(config: &Config) {
     tracing::info!(
         "Importing '{}' into Ollama from {:?}",
         config.model,
-        gguf_path
+        model_path
     );
-    let modelfile = format!("FROM {}", gguf_path.display());
+    let modelfile = format!("FROM {}", model_path.display());
     match client
         .post(format!("{}/api/create", base))
         .json(&serde_json::json!({"model": config.model, "modelfile": modelfile, "stream": false}))
