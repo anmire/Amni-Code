@@ -1,0 +1,18 @@
+- [x] Scan architecture_map.md
+- [x] Backup files to backups/ with .bak.2.2
+- [x] Create this checklist
+- [x] Remove max iterations (25 loop) from agent_loop_stream in main.rs - replace with unbounded but safe loop using while
+- [x] Add per-session working_dir to Session struct
+- [x] Update agent_loop_stream to use per-session cwd
+- [x] Update handle_chat and ChatReq to support working_dir param
+- [x] Update SYSTEM_PROMPT to use dynamic cwd
+- [x] Add themed CSS and cwd display in header of index.html
+- [x] Update JS to show cwd and support setting per session/window
+- [x] Remove all comments from edited codeblocks
+- [x] Use concise syntax, ternaries where possible, minimize lines
+- [x] Update architecture_map.md
+- [x] Append to changelog.md with date and description
+- [x] Run cargo check or build to lint
+- [ ] Test the changes
+- [x] Update other docs if needed
+- [x] Confirm with guardians majority ruling

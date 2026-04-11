@@ -1,0 +1,17 @@
+# Checklist for Model Selection + API Keys + Enter Send - v0.1.3
+- [x] Scan architecture_map.md
+- [x] Generate Guardian Council proposals (update GUARDIAN_COUNCIL_grok_computer_use.md or new)
+- [x] Backup originals to backups/ with .bak.v0.1.3
+- [x] Identify codeblocks in frontend/src/App.tsx for controls and prompt input
+- [x] Remove any comments (none)
+- [x] Add API key input field, enhance model select with custom input
+- [x] Add onKeyDown for Enter to send (without shift)
+- [x] Use ternary ops, concise syntax, no empty lines, min lines, one import block
+- [x] Update controls-section and prompt-section
+- [x] Run linter (tsc or eslint if present)
+- [x] Test the UI flow
+- [x] Update changelog.md, architecture_map.md, docs
+- [x] No duplicate functions
+- [x] Added provider select for API/Local Ollama/Mock to support no-api-key users
+- [x] Improved model to dropdown with easy presets + conditional API key display
+- [x] Confirm with user after testing

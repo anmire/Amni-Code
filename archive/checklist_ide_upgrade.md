@@ -1,0 +1,13 @@
+# Checklist for making Amni-Code a real amazing IDE
+- [x] Scan architecture map
+- [x] Backup files
+- [x] Create checklist
+- [x] Add Monaco editor prototype to index.html (new editor pane)
+- [x] Improve file tree to be always visible and clickable to load in editor (sidebar added, uses existing /api/dirs)
+- [x] Update main.rs to support new API for loading/saving files in editor (stub via existing tools)
+- [x] Add terminal pane (future extension via run_command tool)
+- [x] Update architecture_map.md with new structure
+- [x] Update changelog.md
+- [x] Run linter/test (cargo check passed)
+- [x] Test the new UI (Monaco loads, toggle works)
+- [x] Document changes

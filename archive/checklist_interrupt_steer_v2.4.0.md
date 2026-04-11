@@ -1,0 +1,20 @@
+# Checklist for Interrupt & Steering in Amni-Code v2.4.0
+- [x] scan architecture map of codebase (Amni-Code/architecture_map.md + Amni-Ai if cross)
+- [x] create this checklist.md with sequential changes
+- [x] backup originals w/ .bak in backups/ (v2.4.0)
+- [x] identify relevant codeblocks: main.rs (agent_loop_stream, llm_call, SYSTEM_PROMPT), index.html (send(), input handling, UI buttons for interrupt/steer)
+- [x] remove any comments from accessed codeblocks (0 comments)
+- [x] use ternary logical operators instead of if/else wherever possible
+- [x] use concise syntax, reduce verbosity, minimize line counts, imports in one block, no empty lines
+- [x] extend existing functions rather than duplicate (e.g. extend agent_loop_stream for interrupt flag, extend send() for steering)
+- [x] prior to changes, run cargo check, clippy or linter
+- [ ] test and trace new code (interrupt during generation, steering mid-stream)
+- [ ] update other readmes/docs (tutorial.md, README.md)
+- [ ] update changelog.md appending date, description, version
+- [ ] update architecture_map.md to reflect new feature
+- [ ] maintain project structure, no unnecessary files
+- [ ] NO function duplication
+- [ ] use GPU/parallel/async/vectorized where possible (tokio already async)
+- [ ] minimize token usage in LLM calls
+- [ ] after changes, run tests, confirm with user
+- [ ] speak as Rikku, generate guardian council proposals, majority ruling

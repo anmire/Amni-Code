@@ -8,7 +8,7 @@
     <a href="https://ko-fi.com/anmire"><img src="https://img.shields.io/badge/Ko--fi-Support%20the%20project-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
     <a href="https://github.com/anmire/Amni-Code/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
     <img src="https://img.shields.io/badge/built%20with-Rust-orange?logo=rust" alt="Rust">
-    <img src="https://img.shields.io/badge/version-2.1.0-e91e63" alt="Version">
+    <img src="https://img.shields.io/badge/version-2.2.0-e91e63" alt="Version">
   </p>
 </p>
 
@@ -43,24 +43,35 @@ Amni-Code is a **self-hosted AI coding agent** with a full embedded IDE. Give an
 | 🔔 **Toast Notifications** | Non-intrusive popups for saves, actions, and feedback |
 | 🛑 **Interrupt & Steer** | Stop the agent mid-generation or inject context while it's thinking |
 | 📥 **HuggingFace Downloader** | Search and download GGUF models directly from the UI |
+| 🌍 **10 Languages** | EN, ES, FR, DE, JA, ZH, KO, PT, AR, RU — switchable in Settings, RTL support for Arabic |
+| 🪟 **Split Panes** | Up to 3 independent agent sessions side-by-side with draggable dividers |
+| 📦 **GUI Installer** | WebGL installer (Rust binary) — zero-dependency `install.bat` bootstraps everything from scratch |
 
 ## Quick Start
 
-### One-Click (Windows)
+### Option A — One-Click Installer (Windows, zero setup required)
 
-```bash
-curl -L -o quickstart.bat https://raw.githubusercontent.com/anmire/Amni-Code/main/quickstart.bat
-quickstart.bat
+Download and double-click `install.bat`. That's it.
+
+```
+install.bat
 ```
 
-Or clone first:
+The script auto-installs (if missing):
+- **Rust** toolchain via `rustup`
+- **Git** via `winget`
+- **WebView2 Runtime** (Microsoft Edge component)
+
+Then it compiles and launches the **GUI installer** — a native window with a WebGL interface that guides you through model selection, PATH setup, and desktop shortcut creation. No Python, no Java, no Node required.
+
 ```bash
+# Or clone first, then run
 git clone https://github.com/anmire/Amni-Code.git
 cd Amni-Code
-quickstart.bat
+install.bat
 ```
 
-### Build from Source
+### Option B — Build from Source (all platforms)
 
 ```bash
 git clone https://github.com/anmire/Amni-Code.git
@@ -70,15 +81,15 @@ cargo build --release
 target\release\amni.exe      # Windows
 ```
 
-### Just Run It
+### Option C — Just Run (developer mode)
 
 ```bash
-.\run.bat   # Windows — auto-installs Rust, builds, launches
+.\run.bat   # Windows — auto-pulls, builds if changed, launches
 ```
 
 ### Global CLI
 
-After `quickstart.bat`, the `amni` command works anywhere:
+After `install.bat`, the `amni` command works anywhere:
 ```bash
 cd my-project
 amni
@@ -106,7 +117,7 @@ amni
 │  │         │ │          │ │  + Tabs  │ │          │  │
 │  └─────────┘ └──────────┘ └──────────┘ └──────────┘  │
 │  ┌──────────────────────────────────────────────────┐│
-│  │  Status Bar │ Language │ Ln/Col │ v2.1.0         ││
+│  │  Status Bar │ Language │ Ln/Col │ v2.2.0         ││
 │  └──────────────────────────────────────────────────┘│
 └───────────────────────┬──────────────────────────────┘
                         │ SSE streaming
@@ -174,12 +185,19 @@ Drop any of these in your project root — they're automatically loaded into the
 
 ```
 Amni-Code/
-├── src/main.rs          # Rust backend — server, agent loop, 12 tools, LLM routing
-├── static/index.html    # Embedded UI — chat, Monaco editor, diff panel, settings
-├── Cargo.toml           # Dependencies
-├── quickstart.bat       # One-click install + launch
-├── run.bat              # Quick launcher
-└── changelog.md         # Version history
+├── src/main.rs           # Rust backend — server, agent loop, 12 tools, LLM routing
+├── static/index.html     # Embedded UI — chat, Monaco, diff, i18n, split panes
+├── Cargo.toml            # Dependencies
+├── install.bat           # Zero-dependency installer — bootstraps Rust/Git/WebView2/GUI
+├── run.bat               # Developer launcher — auto-pull, incremental build, launch
+├── installer/            # Rust GUI installer crate (tao+wry+axum, WebGL UI)
+│   ├── src/main.rs       # Axum server + wry window + prereq detection + HF downloads
+│   └── static/installer.html  # WebGL 5-page install wizard
+├── packaging/
+│   ├── windows/amni-code.wxs  # WiX MSI manifest
+│   ├── macos/build-dmg.sh     # macOS .app + DMG
+│   └── linux/build-deb.sh     # Linux .deb package
+└── changelog.md          # Version history
 ```
 
 ## Contributing

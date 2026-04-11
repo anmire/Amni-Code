@@ -1,0 +1,40 @@
+# Amni-Code Architecture Map v2.2.0
+## Overview
+Single-binary AI coding agent. Rust/Axum backend with embedded HTML UI. No Python/Node/npm runtime deps. Per-session cwd for concurrent windows in diff dirs, no max-iters.
+## Core Files
+src/main.rs: Axum web server + full agent engine
+- App state: sessions (HashMap w/ working_dir), config, cwd
+- 6 tools: read_file,write_file,edit_file,run_command,list_directory,search_files
+- Agent loop: unbounded (soft<100) LLM call->tool->repeat until no tools
+- UI header themed cwd display
+- LLM integration: OpenAI-compatible API (Ollama/OpenAI/Anthropic/xAI via provider config)
+- Routes: GET / (serve embedded UI), POST /api/chat (agent), GET|POST /api/config, GET /health
+- Auto-opens browser on launch
+static/index.html: Self-contained single-file UI (HTML+CSS+JS inline)
+- Chat interface with markdown rendering
+- Code-change diff visualizer (side panel, auto-opens on file changes)
+- Settings panel (provider/model/key/url/working_dir/auto_approve toggle)
+- Welcome/onboarding screen with quick-start prompts
+- Tool execution badges with expandable details
+Cargo.toml: Rust deps — axum 0.7, tokio, serde, reqwest, uuid, open, futures, tokio-stream
+run.bat: One-click launcher — checks Rust, builds if needed, runs binary
+## Data Flow
+User input -> POST /api/chat -> agent_loop -> llm_call (OpenAI-compatible) -> tool execution -> repeat until LLM returns text-only -> JSON response with message + tool_calls array
+## Config Providers
+- ollama: localhost:11434 (default, no key needed)
+- openai: api.openai.com (Bearer token)
+- anthropic: api.anthropic.com (x-api-key header)
+- xai: api.x.ai (Bearer token)
+## Backups
+backups/v1.0.0/: main.rs.bak, index.html.bak, run.bat.bak, Cargo.toml.bak
+
+## IDE Upgrade Plan (v2.0)
+- Persistent file explorer sidebar (always visible, tree view)
+- Monaco Editor integration in main pane for live editing
+- Editor <-> Agent sync: load file into editor, save edits via tool
+- Terminal integration pane for running commands live
+- LSP support via agent tools for hover, completion, diagnostics
+- Git status indicators and one-click commit
+- Multi-tab editor support
+- Theme sync with VSCode-like UI
+- AI suggestions pane (extended from editor for agent-driven code improvements)

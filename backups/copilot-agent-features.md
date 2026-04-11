@@ -1,0 +1,20 @@
+# GitHub Copilot Agent Features Checklist
+- [x] Model selection (dropdown with presets for API like grok-beta, local Ollama models)
+- [x] API key input (conditional display for API providers)
+- [x] Provider modes (Grok API, Local Ollama, Mock)
+- [x] Guardrails/approvals (toggle + confirm for risky cmds like rm, git push, ssh)
+- [x] Prompt buttons (quick tasks like Analyze Code, Live Edit, Run Terminal, Git, SSH)
+- [x] Enter key to send chat request
+- [x] Terminal integration (xterm.js with output)
+- [x] File edit preview/diff viewer
+- [x] Edit accepts/auto-saves (stub in backend for file creation/editing)
+- [x] Rules and custom agent modes (via provider and guardrails)
+- [x] Settings (model, key, provider, guardrails)
+- [x] Backend action handler with ternary logic for different providers
+- [ ] Dynamic model loading from folder select (to be added)
+- [ ] Auto-populate dropdown from user models list or API/key entries
+- [ ] Full tool calling loop for computer-use (file ops, terminal, git, SSH)
+- [ ] Integration with VS Code edits and auto-save
+- [ ] Custom rules/agents from customization files (.agent.md etc)
+- [ ] Approval workflows for edits
+- [ ] Multi-model support and switching

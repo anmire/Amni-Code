@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <?define ProductName="Amni-Code" ?>
+  <?define ProductVersion="2.2.0" ?>
+  <?define Manufacturer="Amni" ?>
+  <?define UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890" ?>
+  <Product Id="*"
+           Name="$(var.ProductName)"
+           Version="$(var.ProductVersion)"
+           Manufacturer="$(var.Manufacturer)"
+           Language="1033"
+           UpgradeCode="$(var.UpgradeCode)">
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perUser"
+             Description="Amni-Code AI Coding Agent"
+             Comments="Self-hosted AI coding agent with full embedded IDE" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of $(var.ProductName) is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <UIRef Id="WixUI_InstallDir" />
+    <WixVariable Id="WixUILicenseRtf" Value="..\..\LICENSE.rtf" />
+    <Feature Id="MainFeature" Title="Amni-Code" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="PathEnvComponent" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="INSTALLDIR" Name="Amni-Code">
+          <Directory Id="ModelsDir" Name="models" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Amni-Code" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLDIR">
+      <Component Id="MainExe" Guid="*">
+        <File Id="AmniExe"
+              Source="..\..\target\release\amni.exe"
+              KeyPath="yes" />
+      </Component>
+      <Component Id="WebView2Loader" Guid="*">
+        <File Id="WebView2Loader"
+              Source="..\..\target\release\WebView2Loader.dll"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+    <Component Id="PathEnvComponent" Directory="INSTALLDIR" Guid="B1C2D3E4-F5A6-7890-BCDE-F12345678901">
+      <Environment Id="PATH"
+                   Name="PATH"
+                   Value="[INSTALLDIR]"
+                   Permanent="no"
+                   Part="last"
+                   Action="set"
+                   System="no" />
+    </Component>
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="C1D2E3F4-A5B6-7890-CDEF-123456789012">
+      <Shortcut Id="StartMenuShortcut"
+                Name="Amni-Code"
+                Description="AI Coding Agent"
+                Target="[INSTALLDIR]amni.exe"
+                WorkingDirectory="INSTALLDIR" />
+      <RemoveFolder Id="RemoveStartMenuDir" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Amni\Amni-Code"
+                     Name="installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="D1E2F3A4-B5C6-7890-DEFA-234567890123">
+      <Shortcut Id="DesktopShortcut"
+                Name="Amni-Code"
+                Description="AI Coding Agent"
+                Target="[INSTALLDIR]amni.exe"
+                WorkingDirectory="INSTALLDIR" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Amni\Amni-Code"
+                     Name="desktop_shortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Product>
+</Wix>

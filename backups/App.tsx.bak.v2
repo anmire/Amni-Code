@@ -1,0 +1,123 @@
+import { useEffect, useRef, useState } from 'react';
+import { Terminal as TerminalIcon, Code, Settings, Send, FileText, Folder } from 'lucide-react';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
+import './App.css';
+
+function App(){const terminalContainerRef=useRef<HTMLDivElement>(null);const xtermRef=useRef<Terminal|null>(null);const[prompt,setPrompt]=useState('');const[model,setModel]=useState('grok-beta');const[guardrails,setGuardrails]=useState(true);
+
+  useEffect(() => {
+    if (!terminalContainerRef.current) return;
+
+    const term = new Terminal({
+      theme: {
+        background: '#1e1e1e',
+        foreground: '#cccccc',
+      },
+      fontFamily: '"Consolas", "Courier New", monospace',
+      fontSize: 13,
+    });
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    term.open(terminalContainerRef.current);
+    fitAddon.fit();
+
+    term.writeln('\x1b[1;32mAmni-Coder Test Environment Initialized.\x1b[0m');
+    term.writeln('$ Ready for commands...');
+
+    xtermRef.current = term;
+
+    const handleResize = () => fitAddon.fit();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      term.dispose();
+      xtermRef.current = null;
+    };
+  }, []);
+
+  const handleExecuteAgents=async()=>{if(!prompt.trim()){xtermRef.current?.writeln('\x1b[1;31mError: empty prompt\x1b[0m');return;}const isRisky=/rm|sudo|git push|ssh|delete/i.test(prompt);if(guardrails&&isRisky&&!confirm('Risky action - proceed?'))return;xtermRef.current?.writeln(`\x1b[1;34m[GrokAgent:${model}]\x1b[0m ${prompt}`);try{const res=await fetch('http://localhost:8000/api/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,model,guardrails,mode:'auto'})});if(!res.ok)throw new Error(`http ${res.status}`);const data=await res.json();(data.plan||[]).forEach((s:any)=>{const a=(s as {agent?:string;action?:string});xtermRef.current?.writeln(`\x1b[1;33m[${a.agent||'Agent'}]\x1b[0m ${a.action||''}`);});xtermRef.current?.writeln(`\x1b[1;32m[Done] ${data.message||'ok'}\x1b[0m`);}catch(e:any){xtermRef.current?.writeln(`\x1b[1;31m[Err] ${e.message}\x1b[0m`);}setPrompt('');};
+
+  return (
+    <div className="app-container">
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <Settings size={18} />
+          Amni-Coder Agent
+        </div>
+        
+        <div className="controls-section"><div className="control-item"><span>Model:</span><select style={{background:'#3c3c3c',color:'white',border:'none',padding:'4px',borderRadius:'4px'}} value={model} onChange={e=>setModel(e.target.value)}><option>grok-beta</option><option>claude-computer</option><option>amni-9b</option></select></div><div className="control-item"><span>Guardrails:</span><label><input type="checkbox" checked={guardrails} onChange={e=>setGuardrails(e.target.checked)}/>On</label></div><div className="control-item"><span>Mode:</span><select style={{background:'#3c3c3c',color:'white',border:'none',padding:'4px',borderRadius:'4px'}}><option>Parallel Auto</option><option>Step-by-Step</option></select></div></div>
+
+        <div className="file-explorer">
+          <div className="file-explorer-header">Explorer</div>
+          <div className="folder-item">
+            <Folder size={14} fill="#e8a838" color="#e8a838" />
+            Amni-Coder
+          </div>
+          <div className="file-item active">
+            <FileText size={14} color="#519aba" />
+            main.py
+          </div>
+          <div className="file-item">
+            <FileText size={14} color="#519aba" />
+            utils.py
+          </div>
+          <div className="file-item">
+            <FileText size={14} color="#e37933" />
+            requirements.txt
+          </div>
+        </div>
+
+        <div className="prompt-section">{['Analyze Code','Live Edit File','Run Terminal Cmd','Git Push','SSH VM'].map(b=><button key={b} className="quick-btn" onClick={()=>{setPrompt(b);handleExecuteAgents();}}>{b}</button>)}<textarea className="prompt-box" placeholder="Describe task..." value={prompt} onChange={e=>setPrompt(e.target.value)}/><button className="control-btn" onClick={handleExecuteAgents}><Send size={16}/>Execute</button></div>
+      </div>
+
+      {/* Main Code Area */}
+      <div className="main-content">
+        <div className="editor-header">
+          <Code size={16} /> Code Preview
+        </div>
+        <div className="editor-content">
+          <div className="diff-pane original">
+            <div className="pane-title">Original (main.py)</div>
+            <pre className="code-area original-code">
+{`def calculate_sum(a, b):
+    return a + b
+    
+def main():
+    print(calculate_sum(5, 10))
+`}
+            </pre>
+          </div>
+          <div className="diff-pane">
+            <div className="pane-title">Proposed Changes</div>
+            <pre className="code-area modified-code">
+<div className="code-line added">{`def calculate_sum(a, b):
+    """Returns the sum of two numbers."""
+    return a + b`}</div>
+{`    
+def multiply(a, b):
+    return a * b
+    
+def main():
+    print(calculate_sum(5, 10))
+    print(multiply(5, 10))`}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      {/* Terminal Area */}
+      <div className="terminal-container">
+        <div className="terminal-header">
+          <TerminalIcon size={16} /> Test Environment Terminal
+        </div>
+        <div className="terminal-wrapper" ref={terminalContainerRef}></div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

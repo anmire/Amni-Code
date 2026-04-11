@@ -1,0 +1,33 @@
+# Amni-Code Architecture Map - Grok Computer Use Agent v0.1.1
+## Core Structure
+frontend/ (Vite+React+TS+ xterm):
+- src/App.tsx: Main UI with sidebar (model select, mode, guardrail toggle), prompt buttons (Ollama-style: 'Analyze Code', 'Edit File', 'Run Terminal Cmd', 'Git Commit', 'Full Task'), terminal emulator, live file edit preview, diff viewer.
+- src/App.css: Styling for modern Claude-like interface.
+- Dependencies: react, xterm, lucide-react for icons, fetch to backend.
+
+tmp_amni_ai/:
+- code_knowledge_builder.py: Reused from Amni-Ai for code indexing.
+- tools.py: Agent tools for file ops, terminal, git.
+
+backups/: Versioned .bak files.
+checklist_full_computer_use_grok_agent.md: Task checklist.
+GUARDIAN_COUNCIL_grok_agent.md: Guardian proposals.
+
+## Launcher Integration
+- Added to launcher/server.py P list with id "amni-code", launches: dev server (:5180 svc), build (svc).
+- Icon: SVG with "C" for code.
+- Color: #FF7675.
+- Easy launch via launcher/launch.bat → Mission Control UI.
+
+## Dependencies & Relationships
+- Reuses Amni-Ai/server.py patterns for /api/computer-use endpoint (tools: read/edit_file, exec_terminal with guard, git_exec).
+- Backend: Extend or new server in root for Grok API tool calling (xai grok-beta with tools).
+- Guardrails: Toggleable confirm dialog for high-risk cmds (rm, sudo, git push to remote, ssh).
+- Agentic: Tool calling loop with planning, execution, verification like code_agent.py but extended for full system.
+- Model select: Grok-3, local via ollama, Amni models.
+- No func dup: Extend existing handleExecuteAgents to support computer use mode.
+- Concise code: No comments, ternary ops, single import block, no empty lines.
+- GPU/Async: Use async fetch, parallel tool calls where possible.
+- Integration: Live edits update VSCode via vscode api? or file watch.
+
+Relationships: frontend -> localhost:8001/api/grok-agent (new port to avoid conflict with Amni-Ai 8000).

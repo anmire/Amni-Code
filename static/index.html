@@ -199,17 +199,58 @@ a:hover{opacity:.8}
 .welcome .key:hover{border-color:var(--accent);color:var(--accent)}
 .theme-toggle{background:none;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--dim);font-family:var(--font);font-size:.7rem;letter-spacing:1px;transition:all .2s;text-transform:uppercase;margin-left:8px}
 .theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.pane-container{display:flex;flex:1;min-width:0;overflow:hidden}
+.pane{display:flex;flex-direction:column;flex:1;min-width:280px;overflow:hidden;position:relative}
+.pane+.pane{border-left:2px solid var(--accent-dim)}
+.pane-header{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;color:var(--dim);flex-shrink:0}
+.pane-header select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:10px;font-family:var(--font);padding:2px 4px;border-radius:4px;max-width:140px}
+.pane-header .pane-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:11px;padding:2px 6px;border-radius:3px;transition:all .15s}
+.pane-header .pane-close:hover{background:var(--error);color:#fff}
+.pane-divider{width:4px;cursor:col-resize;background:var(--border);transition:background .15s;flex-shrink:0;position:relative}
+.pane-divider:hover,.pane-divider.dragging{background:var(--accent)}
+.pane-divider::after{content:'';position:absolute;top:50%;left:-4px;right:-4px;height:20px;transform:translateY(-50%)}
+[dir="rtl"] .pane+.pane{border-left:none;border-right:2px solid var(--accent-dim)}
+[dir="rtl"] .app{direction:rtl}
+[dir="rtl"] .sidebar{border-right:none;border-left:1px solid var(--border)}
+[dir="rtl"] .settings-panel{right:auto;left:-380px}
+[dir="rtl"] .settings-panel.open{left:0;right:auto}
+[dir="rtl"] .history-panel{left:auto;right:-320px}
+[dir="rtl"] .history-panel.open{right:0;left:auto}
+[dir="rtl"] .msg.user{align-self:flex-start;border-bottom-right-radius:14px;border-bottom-left-radius:4px}
+[dir="rtl"] .msg.assistant{align-self:flex-end;border-bottom-left-radius:14px;border-bottom-right-radius:4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script>
+const I18N={en:{explorer:"Explorer",welcome_title:"Welcome to Amni-Code",welcome_desc:"Your AI coding agent. Type anything below — ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.",welcome_hint:"Click ⚙ to configure your AI provider (xAI Grok by default)",prompt_api:"Build an API",prompt_debug:"Debug code",prompt_explain:"Explain code",prompt_scaffold:"Scaffold project",settings:"Settings",provider:"Provider",model:"Model",api_key:"API Key",base_url:"Base URL",working_dir:"Working Directory",auto_approve:"Auto-approve all agent actions",auto_approve_desc:"When off, you'll see what the agent wants to do before it executes. When on, it acts autonomously.",code_changes:"Code Changes",undo:"Undo",accept:"Accept",recent_chats:"Recent Chats",clear_all:"Clear All",no_recent:"No recent chats",send:"Send",new_chat:"New Chat",toggle_editor:"Toggle Editor",toggle_diff:"Toggle Diff Panel",save_file:"Save File",quick_open:"Quick Open File",toggle_settings:"Toggle Settings",toggle_theme:"Toggle Theme",cycle_accent:"Cycle Accent Color",chat_history:"Chat History",ai_suggestion:"AI Suggestion",close_tab:"Close Active Tab",next_tab:"Next Tab",prev_tab:"Previous Tab",focus_chat:"Focus Chat Input",undo_changes:"Undo Changes",accept_changes:"Accept Changes",search_models:"Search GGUF models...",download:"Download",searching:"Searching...",no_models_found:"No GGUF models found",loading:"Loading...",ready_install:"Ready to install...",up_folder:"Up",no_subdirs:"No subdirectories",saved:"Saved",save_failed:"Save failed - check connection.",open_file_first:"Open a file first!",no_changes:"No changes yet",changes_accepted:"Changes accepted",reverted:"Reverted",no_changes_undo:"No changes to undo",undo_failed:"Undo failed",undo_confirm:"Undo all changes from this session?",clear_confirm:"Clear all chat history?",connection_error:"Connection error — is the server running? Check Settings for provider config.",generation_interrupted:"Generation interrupted.",error_prefix:"Error",placeholder_chat:"Ask Amni-Code to build, fix, or explain anything...",placeholder_cmd:"Type a command...",go_to_file:"Go to file...",language:"Language",split_view:"Split View",close_pane:"Close Pane",pane:"Pane",model_dir:"Local Model Directory",download_hf:"Download Models from Hugging Face",starting_server:"Starting Inference Server",server_launch_desc:"Launching Amni-AI — this may take 15-30 seconds on first start.",dismiss:"Dismiss",start_server:"Start Server",dark:"DARK",light:"LIGHT",errors:"errors",plaintext:"Plaintext",from_env:"(from ENV)",not_needed:"Not needed for Ollama"},
+es:{explorer:"Explorador",welcome_title:"Bienvenido a Amni-Code",welcome_desc:"Tu agente de código IA. Escribe cualquier cosa — pídele construir funciones, corregir errores, crear archivos o explicar código.",welcome_hint:"Haz clic en ⚙ para configurar tu proveedor de IA",prompt_api:"Crear una API",prompt_debug:"Depurar código",prompt_explain:"Explicar código",prompt_scaffold:"Crear proyecto",settings:"Ajustes",provider:"Proveedor",model:"Modelo",api_key:"Clave API",base_url:"URL Base",working_dir:"Directorio de trabajo",auto_approve:"Auto-aprobar acciones del agente",auto_approve_desc:"Cuando está desactivado, verás lo que el agente quiere hacer. Cuando está activado, actúa autónomamente.",code_changes:"Cambios de Código",undo:"Deshacer",accept:"Aceptar",recent_chats:"Chats Recientes",clear_all:"Borrar Todo",no_recent:"Sin chats recientes",send:"Enviar",new_chat:"Nuevo Chat",toggle_editor:"Alternar Editor",toggle_diff:"Alternar Panel Diff",save_file:"Guardar Archivo",quick_open:"Abrir Rápido",toggle_settings:"Alternar Ajustes",toggle_theme:"Alternar Tema",cycle_accent:"Cambiar Color Acento",chat_history:"Historial",ai_suggestion:"Sugerencia IA",close_tab:"Cerrar Pestaña",next_tab:"Siguiente Pestaña",prev_tab:"Pestaña Anterior",focus_chat:"Enfocar Chat",undo_changes:"Deshacer Cambios",accept_changes:"Aceptar Cambios",search_models:"Buscar modelos GGUF...",download:"Descargar",searching:"Buscando...",no_models_found:"No se encontraron modelos GGUF",loading:"Cargando...",placeholder_chat:"Pide a Amni-Code construir, corregir o explicar...",placeholder_cmd:"Escribe un comando...",go_to_file:"Ir a archivo...",language:"Idioma",split_view:"Vista Dividida",close_pane:"Cerrar Panel",pane:"Panel",dark:"OSCURO",light:"CLARO",errors:"errores",plaintext:"Texto plano"},
+fr:{explorer:"Explorateur",welcome_title:"Bienvenue sur Amni-Code",welcome_desc:"Votre agent de code IA. Tapez n'importe quoi — demandez-lui de créer, corriger, ou expliquer du code.",welcome_hint:"Cliquez ⚙ pour configurer votre fournisseur IA",prompt_api:"Créer une API",prompt_debug:"Déboguer",prompt_explain:"Expliquer le code",prompt_scaffold:"Créer un projet",settings:"Paramètres",provider:"Fournisseur",model:"Modèle",api_key:"Clé API",base_url:"URL de Base",working_dir:"Répertoire de travail",auto_approve:"Auto-approuver les actions",auto_approve_desc:"Désactivé: voir les actions avant exécution. Activé: mode autonome.",code_changes:"Modifications",undo:"Annuler",accept:"Accepter",recent_chats:"Chats Récents",clear_all:"Tout Effacer",no_recent:"Aucun chat récent",send:"Envoyer",new_chat:"Nouveau Chat",placeholder_chat:"Demandez à Amni-Code de construire, corriger ou expliquer...",placeholder_cmd:"Tapez une commande...",go_to_file:"Aller au fichier...",language:"Langue",split_view:"Vue Divisée",close_pane:"Fermer le Panneau",pane:"Panneau",dark:"SOMBRE",light:"CLAIR",errors:"erreurs"},
+de:{explorer:"Explorer",welcome_title:"Willkommen bei Amni-Code",welcome_desc:"Ihr KI-Coding-Agent. Tippen Sie etwas — bitten Sie ihn, Features zu bauen, Fehler zu beheben oder Code zu erklären.",welcome_hint:"Klicken Sie ⚙ um Ihren KI-Anbieter zu konfigurieren",settings:"Einstellungen",provider:"Anbieter",model:"Modell",api_key:"API-Schlüssel",auto_approve:"Automatische Genehmigung",code_changes:"Code-Änderungen",undo:"Rückgängig",accept:"Akzeptieren",recent_chats:"Letzte Chats",new_chat:"Neuer Chat",language:"Sprache",split_view:"Geteilte Ansicht",close_pane:"Bereich schließen",pane:"Bereich",dark:"DUNKEL",light:"HELL",errors:"Fehler",placeholder_chat:"Fragen Sie Amni-Code..."},
+ja:{explorer:"エクスプローラー",welcome_title:"Amni-Codeへようこそ",welcome_desc:"AIコーディングエージェント。何でも入力してください — 機能の構築、バグの修正、コードの説明を依頼できます。",settings:"設定",provider:"プロバイダー",model:"モデル",api_key:"APIキー",auto_approve:"自動承認",code_changes:"コード変更",undo:"元に戻す",accept:"承認",recent_chats:"最近のチャット",new_chat:"新しいチャット",language:"言語",split_view:"分割ビュー",close_pane:"パネルを閉じる",pane:"パネル",dark:"ダーク",light:"ライト",errors:"エラー",placeholder_chat:"Amni-Codeに何でも聞いてください...",send:"送信"},
+zh:{explorer:"文件浏览",welcome_title:"欢迎使用 Amni-Code",welcome_desc:"AI编程助手。输入任何内容 - 让它构建功能、修复错误或解释代码。",settings:"设置",provider:"提供商",model:"模型",api_key:"API密钥",auto_approve:"自动批准",code_changes:"代码更改",undo:"撤销",accept:"接受",recent_chats:"最近聊天",new_chat:"新聊天",language:"语言",split_view:"分屏视图",close_pane:"关闭面板",pane:"面板",dark:"暗色",light:"亮色",errors:"错误",placeholder_chat:"让Amni-Code帮你构建或修复代码...",send:"发送"},
+ko:{explorer:"탐색기",welcome_title:"Amni-Code에 오신 것을 환영합니다",welcome_desc:"AI 코딩 에이전트. 무엇이든 입력하세요 — 기능 구축, 버그 수정, 코드 설명을 요청하세요.",settings:"설정",provider:"제공자",model:"모델",api_key:"API 키",auto_approve:"자동 승인",code_changes:"코드 변경",undo:"실행 취소",accept:"수락",recent_chats:"최근 채팅",new_chat:"새 채팅",language:"언어",split_view:"분할 보기",close_pane:"패널 닫기",pane:"패널",dark:"다크",light:"라이트",errors:"오류",placeholder_chat:"Amni-Code에 무엇이든 물어보세요...",send:"전송"},
+pt:{explorer:"Explorador",welcome_title:"Bem-vindo ao Amni-Code",welcome_desc:"Seu agente de código IA. Digite qualquer coisa — peça para construir, corrigir ou explicar código.",settings:"Configurações",provider:"Provedor",model:"Modelo",api_key:"Chave API",auto_approve:"Auto-aprovar",code_changes:"Alterações",undo:"Desfazer",accept:"Aceitar",recent_chats:"Chats Recentes",new_chat:"Novo Chat",language:"Idioma",split_view:"Dividir Tela",close_pane:"Fechar Painel",pane:"Painel",dark:"ESCURO",light:"CLARO",errors:"erros",placeholder_chat:"Peça ao Amni-Code para construir ou corrigir...",send:"Enviar"},
+ar:{explorer:"المستكشف",welcome_title:"مرحباً في Amni-Code",welcome_desc:"مساعد البرمجة بالذكاء الاصطناعي. اكتب أي شيء لبناء أو إصلاح أو شرح الكود.",settings:"الإعدادات",provider:"المزود",model:"النموذج",api_key:"مفتاح API",auto_approve:"موافقة تلقائية",code_changes:"تغييرات الكود",undo:"تراجع",accept:"قبول",recent_chats:"المحادثات الأخيرة",new_chat:"محادثة جديدة",language:"اللغة",split_view:"عرض مقسم",close_pane:"إغلاق اللوحة",pane:"لوحة",dark:"داكن",light:"فاتح",errors:"أخطاء",placeholder_chat:"اسأل Amni-Code أي شيء...",send:"إرسال"},
+ru:{explorer:"Проводник",welcome_title:"Добро пожаловать в Amni-Code",welcome_desc:"ИИ-помощник для кода. Введите что угодно — попросите создать, исправить или объяснить код.",settings:"Настройки",provider:"Провайдер",model:"Модель",api_key:"API ключ",auto_approve:"Автоодобрение",code_changes:"Изменения кода",undo:"Отменить",accept:"Принять",recent_chats:"Недавние чаты",new_chat:"Новый чат",language:"Язык",split_view:"Разделить вид",close_pane:"Закрыть панель",pane:"Панель",dark:"ТЁМНАЯ",light:"СВЕТЛАЯ",errors:"ошибки",placeholder_chat:"Спросите Amni-Code о чём угодно...",send:"Отправить"}};
+let _lang=localStorage.getItem('amniLang')||'en';
+function t(k){return(I18N[_lang]&&I18N[_lang][k])||I18N.en[k]||k;}
+function setLang(l){_lang=l;localStorage.setItem('amniLang',l);document.documentElement.dir=(l==='ar')?'rtl':'ltr';applyI18n();}
+function applyI18n(){
+document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');el.textContent=t(k);});
+document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{const k=el.getAttribute('data-i18n-placeholder');el.placeholder=t(k);});
+document.querySelectorAll('[data-i18n-title]').forEach(el=>{const k=el.getAttribute('data-i18n-title');el.title=t(k);});
+}
+</script>
 </head>
 <body>
 <div class="scanlines"></div>
 <div class="grid-bg"></div>
 <div class="app">
   <div class="sidebar">
-    <div class="sidebar-header">📁 Explorer</div>
+    <div class="sidebar-header">📁 <span data-i18n="explorer">Explorer</span></div>
     <div class="sidebar-body" id="sidebar-tree"></div>
   </div>
+  <div class="pane-container" id="pane-container">
+  <div class="pane" id="pane-0" data-pane-id="0">
   <div class="chat-col">
     <div class="header"><h1><span>Amni</span>-Code</h1><div class="cwd-info" id="cwd-info">📂 <span id="cwd-path">unknown</span></div><div class="header-actions">
         <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">DARK</button>
@@ -223,30 +264,33 @@ a:hover{opacity:.8}
         <button class="icon-btn" id="editor-toggle" title="Editor">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
         </button>
-        <button class="icon-btn" id="new-chat" title="New Chat">
+        <button class="icon-btn" id="split-btn" data-i18n-title="split_view" title="Split View">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        </button>
+        <button class="icon-btn" id="new-chat" data-i18n-title="new_chat" title="New Chat">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6M9 10h6"/></svg>
         </button>
-        <button class="icon-btn" id="settings-btn" title="Settings">
+        <button class="icon-btn" id="settings-btn" data-i18n-title="settings" title="Settings">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
     </div>
     <div class="messages" id="messages">
       <div class="welcome" id="welcome">
-        <h2>Welcome to Amni-Code</h2>
-        <p>Your AI coding agent. Type anything below &mdash; ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.</p>
-        <p style="color:var(--text2);font-size:12px;margin-top:6px">Click &#9881; to configure your AI provider (xAI Grok by default)</p>
+        <h2 data-i18n="welcome_title">Welcome to Amni-Code</h2>
+        <p data-i18n="welcome_desc">Your AI coding agent. Type anything below &mdash; ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.</p>
+        <p style="color:var(--text2);font-size:12px;margin-top:6px" data-i18n="welcome_hint">Click &#9881; to configure your AI provider (xAI Grok by default)</p>
         <div class="keys">
-          <div class="key" onclick="fillPrompt('Create a Python Flask API with user auth')">Build an API</div>
-          <div class="key" onclick="fillPrompt('Find and fix the bug in main.py')">Debug code</div>
-          <div class="key" onclick="fillPrompt('Explain how this codebase works')">Explain code</div>
-          <div class="key" onclick="fillPrompt('Set up a new React project with TypeScript')">Scaffold project</div>
+          <div class="key" onclick="fillPrompt('Create a Python Flask API with user auth')" data-i18n="prompt_api">Build an API</div>
+          <div class="key" onclick="fillPrompt('Find and fix the bug in main.py')" data-i18n="prompt_debug">Debug code</div>
+          <div class="key" onclick="fillPrompt('Explain how this codebase works')" data-i18n="prompt_explain">Explain code</div>
+          <div class="key" onclick="fillPrompt('Set up a new React project with TypeScript')" data-i18n="prompt_scaffold">Scaffold project</div>
         </div>
       </div>
     </div>
     <div class="input-area">
       <div class="input-wrap">
-        <textarea id="input" rows="1" placeholder="Ask Amni-Code to build, fix, or explain anything..."></textarea>
+        <textarea id="input" rows="1" data-i18n-placeholder="placeholder_chat" placeholder="Ask Amni-Code to build, fix, or explain anything..."></textarea>
         <button class="interrupt-btn" id="interrupt" title="Stop generation" disabled>&#9632;</button>
         <button class="steer-btn" id="steer" title="Inject context mid-generation (type in input first)" disabled>&#9654;</button>
         <button class="send-btn" id="send" title="Send">
@@ -254,6 +298,8 @@ a:hover{opacity:.8}
         </button>
       </div>
     </div>
+  </div>
+  </div>
   </div>
   <div class="editor-col" id="editor-col">
     <div class="editor-header">
@@ -272,10 +318,10 @@ a:hover{opacity:.8}
   </div>
   <div class="diff-col" id="diff-col">
     <div class="diff-header">
-      <h3>Code Changes</h3>
+      <h3 data-i18n="code_changes">Code Changes</h3>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="diff-action-btn undo" onclick="undoChanges()" title="Undo all changes">&#8617; Undo</button>
-        <button class="diff-action-btn accept" onclick="acceptChanges()" title="Accept all changes">&#10003; Accept</button>
+        <button class="diff-action-btn undo" onclick="undoChanges()" data-i18n-title="undo_changes" title="Undo all changes">&#8617; <span data-i18n="undo">Undo</span></button>
+        <button class="diff-action-btn accept" onclick="acceptChanges()" data-i18n-title="accept_changes" title="Accept all changes">&#10003; <span data-i18n="accept">Accept</span></button>
         <button class="icon-btn" onclick="toggleDiff()" title="Close">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
@@ -287,8 +333,8 @@ a:hover{opacity:.8}
 <div class="settings-overlay" id="settings-overlay"></div>
 <div class="history-panel" id="history-panel">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-    <h2>Recent Chats</h2>
-    <span style="cursor:pointer;font-size:12px;color:var(--dim)" onclick="clearHistory()">Clear All</span>
+    <h2 data-i18n="recent_chats">Recent Chats</h2>
+    <span style="cursor:pointer;font-size:12px;color:var(--dim)" onclick="clearHistory()" data-i18n="clear_all">Clear All</span>
   </div>
   <div id="history-list" style="flex:1;overflow-y:auto"></div>
 </div>
@@ -304,8 +350,8 @@ a:hover{opacity:.8}
   </div>
 </div>
 <div class="settings-panel" id="settings-panel">
-  <h2>Settings</h2>
-  <label>Provider</label>
+  <h2 data-i18n="settings">Settings</h2>
+  <label data-i18n="provider">Provider</label>
   <select id="cfg-provider">
     <option value="xai">xAI (Grok)</option>
     <option value="openai">OpenAI</option>
@@ -314,13 +360,13 @@ a:hover{opacity:.8}
     <option value="local">Custom Local Server</option>
     <option value="amni">Amni-AI (Adam / Gemma PTEX)</option>
   </select>
-  <label>Model</label>
+  <label data-i18n="model">Model</label>
   <select id="cfg-model"><option>Loading...</option></select>
-  <label id="api-key-label">API Key <span style="font-size:10px;color:var(--green)" id="key-src"></span></label>
-  <input id="cfg-key" type="password" placeholder="Not needed for Ollama">
-  <label>Base URL</label>
+  <label id="api-key-label" data-i18n="api_key">API Key <span style="font-size:10px;color:var(--green)" id="key-src"></span></label>
+  <input id="cfg-key" type="password" data-i18n-placeholder="not_needed" placeholder="Not needed for Ollama">
+  <label data-i18n="base_url">Base URL</label>
   <input id="cfg-url" placeholder="http://localhost:11434">
-  <label>Working Directory</label>
+  <label data-i18n="working_dir">Working Directory</label>
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
     <input id="cfg-dir" placeholder="Current directory" style="flex:1;margin:0">
     <button onclick="navigateDirUp()" title="Up folder" style="padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;cursor:pointer;color:var(--text2);font-size:11px;flex-shrink:0;white-space:nowrap">↑ Up</button>
@@ -350,10 +396,23 @@ a:hover{opacity:.8}
     </div>
   </div>
   <div class="toggle-row">
-    <span>Auto-approve all agent actions</span>
+    <span data-i18n="auto_approve">Auto-approve all agent actions</span>
     <div class="toggle" id="cfg-auto" onclick="this.classList.toggle('on')"></div>
   </div>
-  <p style="font-size:11px;color:var(--text2);margin-top:8px">When off, you'll see what the agent wants to do before it executes. When on, it acts autonomously.</p>
+  <p style="font-size:11px;color:var(--text2);margin-top:8px" data-i18n="auto_approve_desc">When off, you'll see what the agent wants to do before it executes. When on, it acts autonomously.</p>
+  <label data-i18n="language">Language</label>
+  <select id="cfg-lang" onchange="setLang(this.value)">
+    <option value="en">English</option>
+    <option value="es">Español</option>
+    <option value="fr">Français</option>
+    <option value="de">Deutsch</option>
+    <option value="ja">日本語</option>
+    <option value="zh">中文</option>
+    <option value="ko">한국어</option>
+    <option value="pt">Português</option>
+    <option value="ar">العربية</option>
+    <option value="ru">Русский</option>
+  </select>
 </div>
 <div class="qo-overlay" id="qo-overlay"></div>
 <div class="qo-palette" id="qo-palette">
@@ -363,7 +422,7 @@ a:hover{opacity:.8}
 <div class="toast-container" id="toast-container"></div>
 <div class="status-bar" id="status-bar">
   <div class="status-left"><span class="status-item" id="sb-branch">main</span><span class="status-item" id="sb-errors">0 errors</span></div>
-  <div class="status-right"><span class="status-item" id="sb-lang">Plaintext</span><span class="status-item" id="sb-pos">Ln 1, Col 1</span><span class="status-item">Amni-Code v2.1.0</span></div>
+  <div class="status-right"><span class="status-item" id="sb-lang">Plaintext</span><span class="status-item" id="sb-pos">Ln 1, Col 1</span><span class="status-item">Amni-Code v2.2.0</span></div>
 </div>
 <div class="cmd-overlay" id="cmd-overlay"></div>
 <div class="cmd-palette" id="cmd-palette">
@@ -1366,6 +1425,162 @@ document.addEventListener('keydown', e => {
     if ($('#qo-palette').classList.contains('open')) closeQuickOpen();
   }
 });
+
+// Split Pane Multi-Agent System
+let panes = [{id:0,sessionId:sessionId,el:$('#pane-0')}];
+let activePaneIdx = 0;
+function createPane(){
+  if(panes.length >= 3) { showToast(t('split_view') + ': max 3'); return; }
+  const id = panes.length;
+  const container = $('#pane-container');
+  const divider = document.createElement('div');
+  divider.className = 'pane-divider';
+  divider.dataset.leftPane = id - 1;
+  divider.dataset.rightPane = id;
+  setupDividerDrag(divider);
+  container.appendChild(divider);
+  const pane = document.createElement('div');
+  pane.className = 'pane';
+  pane.id = 'pane-' + id;
+  pane.dataset.paneId = id;
+  pane.innerHTML = `<div class="pane-header"><span>${t('pane')} ${id+1}</span><select class="pane-model" onchange="paneSaveModel(${id},this.value)"></select><button class="pane-close" onclick="closePane(${id})" title="${t('close_pane')}">✕</button></div><div class="chat-col" style="border:none"><div class="messages" id="pane-msgs-${id}"><div class="welcome"><h2>${t('welcome_title')}</h2><p>${t('welcome_desc')}</p></div></div><div class="input-area"><div class="input-wrap"><textarea rows="1" placeholder="${t('placeholder_chat')}" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();paneSend(${id},this)}" oninput="autoResize(this)"></textarea><button class="send-btn" onclick="paneSend(${id},this.previousElementSibling)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button></div></div></div>`;
+  container.appendChild(pane);
+  panes.push({id,sessionId:null,el:pane});
+  populatePaneModels(id);
+  showToast(t('split_view') + ' → ' + (id+1));
+}
+function closePane(id){
+  if(panes.length <= 1) return;
+  const idx = panes.findIndex(p => p.id === id);
+  if(idx < 0) return;
+  const pane = panes[idx];
+  const prev = pane.el.previousElementSibling;
+  if(prev && prev.classList.contains('pane-divider')) prev.remove();
+  else { const next = pane.el.nextElementSibling; if(next && next.classList.contains('pane-divider')) next.remove(); }
+  pane.el.remove();
+  panes.splice(idx, 1);
+  if(activePaneIdx >= panes.length) activePaneIdx = panes.length - 1;
+  showToast(t('close_pane'));
+}
+async function paneSend(id, textarea){
+  const text = textarea.value.trim();
+  if(!text) return;
+  textarea.value = ''; autoResize(textarea);
+  const pane = panes.find(p => p.id === id);
+  if(!pane) return;
+  const msgsEl = pane.el.querySelector('.messages') || $(`#pane-msgs-${id}`);
+  const w = msgsEl.querySelector('.welcome'); if(w) w.remove();
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg user';
+  userDiv.textContent = text;
+  msgsEl.appendChild(userDiv);
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  const thinkDiv = document.createElement('div');
+  thinkDiv.className = 'msg assistant';
+  thinkDiv.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  msgsEl.appendChild(thinkDiv);
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  const modelSel = pane.el.querySelector('.pane-model');
+  const paneModel = modelSel ? modelSel.value : '';
+  try{
+    const body = {message:text,session_id:pane.sessionId,working_dir:$('#cfg-dir').value};
+    const res = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', allTools = [], finalMsg = '', gotMsg = false;
+    while(true){
+      const{value,done}=await reader.read();
+      if(done) break;
+      buffer += decoder.decode(value,{stream:true});
+      while(buffer.includes('\n\n')){
+        const idx2=buffer.indexOf('\n\n');
+        const chunk=buffer.substring(0,idx2);
+        buffer=buffer.substring(idx2+2);
+        let evType='',dataStr='';
+        for(const line of chunk.split('\n')){
+          if(line.startsWith('event:'))evType=line.substring(6).trim();
+          else if(line.startsWith('data:'))dataStr+=line.substring(5);
+        }
+        if(!dataStr)continue;
+        try{
+          const data=JSON.parse(dataStr);
+          if(evType==='session'){pane.sessionId=data.session_id;}
+          else if(evType==='tool_result'){allTools.push(data);if(data.tool==='write_file'||data.tool==='edit_file')parseDiff(data);}
+          else if(evType==='message'){finalMsg=data.message;gotMsg=true;}
+          else if(evType==='error'){thinkDiv.remove();const errDiv=document.createElement('div');errDiv.className='msg system';errDiv.textContent=t('error_prefix')+': '+(data.error||'Unknown');msgsEl.appendChild(errDiv);return;}
+          else if(evType==='interrupted'){thinkDiv.remove();const iDiv=document.createElement('div');iDiv.className='msg system';iDiv.textContent=t('generation_interrupted');msgsEl.appendChild(iDiv);return;}
+        }catch(e){}
+      }
+    }
+    thinkDiv.remove();
+    if(gotMsg||allTools.length){
+      const aDiv=document.createElement('div');
+      aDiv.className='msg assistant';
+      if(allTools.length){
+        let th='<div class="tool-group">';
+        allTools.forEach(tt=>{th+=`<span class="tool-badge ${tt.status==='success'?'success':'error'}">⚡ ${escHtml(tt.tool)}</span>`;});
+        th+='</div>';
+        aDiv.innerHTML=th+renderMd(finalMsg||'');
+      }else{aDiv.innerHTML=renderMd(finalMsg||'');}
+      msgsEl.appendChild(aDiv);
+    }
+    msgsEl.scrollTop=msgsEl.scrollHeight;
+  }catch(e){thinkDiv.remove();const eDiv=document.createElement('div');eDiv.className='msg system';eDiv.textContent=t('connection_error');msgsEl.appendChild(eDiv);}
+}
+async function populatePaneModels(id){
+  const pane=panes.find(p=>p.id===id);
+  if(!pane)return;
+  const sel=pane.el.querySelector('.pane-model');
+  if(!sel)return;
+  try{
+    const res=await fetch('/api/models');
+    const data=await res.json();
+    sel.innerHTML=data.models.map(m=>`<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+  }catch(e){sel.innerHTML='<option>Error</option>';}
+}
+function paneSaveModel(id,model){}
+function setupDividerDrag(divider){
+  let startX,leftPane,rightPane,leftW,rightW;
+  divider.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    divider.classList.add('dragging');
+    startX=e.clientX;
+    const leftIdx=parseInt(divider.dataset.leftPane);
+    const rightIdx=parseInt(divider.dataset.rightPane);
+    leftPane=panes.find(p=>p.id===leftIdx)?.el;
+    rightPane=panes.find(p=>p.id===rightIdx)?.el;
+    if(!leftPane||!rightPane)return;
+    leftW=leftPane.getBoundingClientRect().width;
+    rightW=rightPane.getBoundingClientRect().width;
+    const onMove=ev=>{
+      const dx=ev.clientX-startX;
+      const newL=Math.max(280,leftW+dx);
+      const newR=Math.max(280,rightW-dx);
+      leftPane.style.flex='none';leftPane.style.width=newL+'px';
+      rightPane.style.flex='none';rightPane.style.width=newR+'px';
+    };
+    const onUp=()=>{
+      divider.classList.remove('dragging');
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+}
+$('#split-btn').addEventListener('click', createPane);
+
+// Apply i18n on load
+const savedLang = localStorage.getItem('amniLang') || 'en';
+if(savedLang !== 'en') {
+  _lang = savedLang;
+  document.documentElement.dir = (savedLang === 'ar') ? 'rtl' : 'ltr';
+}
+$('#cfg-lang').value = _lang;
+applyI18n();
+
+// Add split view + language to command palette
+cmdCommands.push({ label: t('split_view'), key: '', fn: createPane });
 
 // Auto open editor on load for demo
 setTimeout(() => {

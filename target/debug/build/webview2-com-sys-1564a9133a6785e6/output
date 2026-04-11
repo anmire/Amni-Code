@@ -1,0 +1,1 @@
+cargo:rustc-link-search=native=C:\Users\antho\Documents\ai\Amni-Code\target\debug\build\webview2-com-sys-1564a9133a6785e6\out\x64

@@ -1,0 +1,11 @@
+C:\Users\antho\Documents\ai\Amni-Code\target\debug\deps\digest-f22e1f4cff32ca82.d: C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\lib.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\ct_variable.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\rt_variable.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\wrapper.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\xof_reader.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\digest.rs
+
+C:\Users\antho\Documents\ai\Amni-Code\target\debug\deps\libdigest-f22e1f4cff32ca82.rmeta: C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\lib.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\ct_variable.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\rt_variable.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\wrapper.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\xof_reader.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\digest.rs
+
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\lib.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\ct_variable.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\rt_variable.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\wrapper.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\xof_reader.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\digest.rs:

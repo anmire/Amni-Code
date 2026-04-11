@@ -1,0 +1,161 @@
+# Amni-Code - Custom AI Coding Agent
+
+A standalone AI coding assistant built in Rust with embedded web UI, inspired by Ollama and Claude Code. Features advanced VSCode-like capabilities for local AI-powered development.
+
+## Quick Start
+
+1. **One-Click Install**:
+   ```bash
+   git clone https://github.com/yourusername/amni-code.git
+   cd amni-code
+   install.bat  # Launches GUI installer with progress tracking
+   ```
+
+2. **Run the Application**:
+   ```bash
+   target\release\amni-code.exe
+   ```
+
+3. **Open in Browser**:
+   - Navigate to `http://localhost:3000`
+   - Start chatting with your local AI assistant!
+
+## Installation
+
+The installer (`install.bat`) launches a **graphical installer** that automatically:
+- Checks for and installs Python if needed
+- Runs a comprehensive Python-based installation script
+- Detects hardware (NVIDIA CUDA, AMD HIP/ROCm)
+- Installs all dependencies (Rust, Python packages)
+- Builds the application
+- Downloads AI models
+- Creates desktop shortcuts
+
+### GUI Installer Features
+
+- **Progress Tracking**: Real-time progress bar and status updates
+- **Detailed Logs**: Scrollable log window showing all installation steps
+- **Error Handling**: Clear error messages and recovery suggestions
+- **Cancellation Support**: Cancel installation at any time
+- **Hardware Detection**: Automatic GPU detection and setup guidance
+- **Desktop Shortcut**: Optional desktop shortcut creation (toggleable)
+- **Direct Launch**: Launch Amni-Code immediately after installation
+- **Modern Design**: Glass-like transparency and sleek dark theme
+
+### Hardware Support
+
+#### NVIDIA GPUs
+- **CUDA Support**: Automatic detection and configuration
+- **Requirements**: CUDA 12.0+ toolkit
+- **Performance**: Full GPU acceleration for model inference
+
+#### AMD GPUs
+- **HIP/ROCm Support**: Prompts for installation of HIP SDK 7.1.1
+- **Compatibility**: HIP 7.1.1 supports most 7000-series GPUs (rename to GFX1100)
+- **Alternative**: ZLUDA for CUDA compatibility on AMD hardware
+- **Setup**: Installer guides you through the process
+
+### Manual Installation
+
+If you prefer manual setup:
+
+1. **Install Python 3.8+**
+2. **Install Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+3. **Install dependencies**: `pip install -r requirements.txt`
+4. **Build**: `cargo build --release`
+5. **Download models**: Run the installer or manually download from HuggingFace
+
+## Hardware Support
+
+### NVIDIA GPUs
+- **CUDA Support**: Automatic detection and configuration
+- **Requirements**: CUDA 12.0+ toolkit
+- **Performance**: Full GPU acceleration for model inference
+
+### AMD GPUs
+- **HIP/ROCm Support**: Prompts for installation of HIP SDK 7.1.1
+- **Compatibility**: HIP 7.1.1 supports most 7000-series GPUs (rename to GFX1100)
+- **Alternative**: ZLUDA for CUDA compatibility on AMD hardware
+- **Setup**: Installer guides you through the process
+
+### CPU Fallback
+- **Universal**: Works on any modern CPU
+- **Performance**: Slower but fully functional
+- **Memory**: 16GB+ RAM recommended for larger models
+
+## System Requirements
+
+- **OS**: Windows 10/11
+- **RAM**: 16GB+ recommended
+- **GPU**: NVIDIA (CUDA 12.0+), AMD (ROCm 7.1.1+), or CPU fallback
+- **Storage**: ~20GB for models + application
+- **Network**: High-speed internet for initial model downloads
+
+## Usage
+
+### Basic Chat
+- Type your coding questions or requests
+- Press Enter or click Send
+- Get AI-powered responses with code suggestions
+
+### Advanced Features
+- **Code Editor**: Edit code directly in the browser
+- **Terminal**: Run commands through the AI assistant
+- **Files**: Browse and modify project files
+- **New Chat**: Start fresh conversations
+
+### Model Management
+- Switch between pre-downloaded models
+- Models are cached locally for offline use
+- Automatic format detection (safetensors/GGUF)
+
+## Development
+
+### Building from Source
+```bash
+cargo build --release
+```
+
+### Modifying the UI
+- Edit `static/index.html`, `static/style.css`, `static/app.js`
+- Rebuild and restart the server
+
+### Adding New Models
+- Update the model selector in `static/app.js`
+- Models download automatically on first use
+
+## Troubleshooting
+
+### Common Issues
+- **AMD GPU Setup**: Follow installer prompts for HIP installation
+- **CUDA Not Found**: Download CUDA toolkit from NVIDIA website
+- **Model Download Fails**: Check internet connection, retry installer
+- **Python Installation**: Complete Microsoft Store installation before retrying
+- **Port 3000 Busy**: Change port in `src/main.rs` if needed
+
+### AMD GPU Specific
+- **HIP Installation**: Use ROCm 7.1.1 for best compatibility
+- **7000 Series**: Rename GFX architecture to GFX1100 in device config
+- **ZLUDA Alternative**: Easier setup but less compatible than native HIP
+
+### Performance Tips
+- Use smaller model for faster responses
+- Ensure GPU drivers are up to date
+- Close other GPU-intensive applications
+- 16GB+ RAM for optimal performance
+
+## Architecture
+
+- **Backend**: Rust with Axum web server
+- **AI Engine**: Candle ML framework for model inference
+- **Frontend**: Vanilla HTML/CSS/JavaScript
+- **Models**: HuggingFace integration for downloads
+- **Hardware**: Native GPU acceleration support
+
+## Contributing
+
+This is a custom implementation inspired by existing tools but built from scratch. Contributions welcome!
+
+## License
+
+[Your License Here] 

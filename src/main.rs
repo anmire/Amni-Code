@@ -1789,7 +1789,7 @@ async fn main() -> anyhow::Result<()> {
     }
     let effective_cwd = PathBuf::from(&config.working_dir);
     let custom_inst = load_custom_instructions(&effective_cwd);
-    println!("\n  Amni-Code v2.1.0 — AI Coding Agent");
+    println!("\n  Amni-Code v2.2.0 — AI Coding Agent");
     println!("  Working dir: {}", effective_cwd.display());
     if !custom_inst.is_empty() { println!("  Custom instructions: loaded from project"); }
     let memory = load_memory_store(&effective_cwd);

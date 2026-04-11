@@ -1,0 +1,397 @@
+from abc import ABC,abstractmethod;from typing import Dict,Any,Optional;import os,subprocess,json;from pathlib import Path
+
+class BaseTool(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def parameters(self) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def execute(self, **kwargs) -> Dict[str, Any]:
+        pass
+
+class FileReadTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "read_file"
+
+    @property
+    def description(self) -> str:
+        return "Read contents of a file"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File path to read"},
+                "start_line": {"type": "integer", "description": "Starting line number (1-based)", "default": 1},
+                "end_line": {"type": "integer", "description": "Ending line number (optional)"}
+            },
+            "required": ["path"]
+        }
+
+    def execute(self, path: str, start_line: int = 1, end_line: Optional[int] = None) -> Dict[str, Any]:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            if end_line:
+                content = ''.join(lines[start_line-1:end_line])
+            else:
+                content = ''.join(lines[start_line-1:])
+            return {"result": content, "lines_read": len(lines)}
+        except Exception as e:
+            return {"error": str(e)}
+
+class FileWriteTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "write_file"
+
+    @property
+    def description(self) -> str:
+        return "Write or overwrite a file"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File path to write"},
+                "content": {"type": "string", "description": "Content to write"}
+            },
+            "required": ["path", "content"]
+        }
+
+    def execute(self, path: str, content: str) -> Dict[str, Any]:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return {"result": "File written successfully"}
+        except Exception as e:
+            return {"error": str(e)}
+
+class RunCommandTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "run_command"
+
+    @property
+    def description(self) -> str:
+        return "Execute a shell command"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "Command to execute"},
+                "cwd": {"type": "string", "description": "Working directory", "default": "."}
+            },
+            "required": ["command"]
+        }
+
+    def execute(self, command: str, cwd: str = ".") -> Dict[str, Any]:
+        try:
+            result = subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True, timeout=30)
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode
+            }
+        except subprocess.TimeoutExpired:
+            return {"error": "Command timed out"}
+        except Exception as e:
+            return {"error": str(e)}
+
+class LintCodeTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "lint_code"
+
+    @property
+    def description(self) -> str:
+        return "Lint Python code using flake8 or similar"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File or directory to lint"}
+            },
+            "required": ["path"]
+        }
+
+    def execute(self, path: str) -> Dict[str, Any]:
+        try:
+            result = subprocess.run(f"python -m flake8 {path}", shell=True, capture_output=True, text=True, timeout=30)
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+class LookupTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "lookup"
+
+    @property
+    def description(self) -> str:
+        return "Look up word or concept in knowledge base"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "word": {"type": "string", "description": "Word or concept to look up"}
+            },
+            "required": ["word"]
+        }
+
+    def execute(self, word: str) -> Dict[str, Any]:
+        # Placeholder: integrate with Amni-A1's lexicon
+        return {"result": f"Definition of {word}: [would query lexicon]"}
+
+class LearnTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "learn"
+
+    @property
+    def description(self) -> str:
+        return "Learn about a topic"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Topic to learn about"}
+            },
+            "required": ["topic"]
+        }
+
+    def execute(self, topic: str) -> Dict[str, Any]:
+        # Placeholder: trigger learning
+        return {"result": f"Learning about {topic}: [would enqueue learning]"}
+
+class ReflectTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "reflect"
+
+    @property
+    def description(self) -> str:
+        return "Reflect on knowledge or self"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Topic to reflect on"}
+            },
+            "required": ["topic"]
+        }
+
+    def execute(self, topic: str) -> Dict[str, Any]:
+        # Placeholder: trigger reflection
+        return {"result": f"Reflecting on {topic}: [would analyze knowledge]"}
+
+class CodeKnowledgeTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "code_knowledge"
+
+    @property
+    def description(self) -> str:
+        return "Query programming language knowledge base"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "language": {"type": "string", "description": "Programming language (e.g., python, javascript)"},
+                "query": {"type": "string", "description": "What to look up (function, syntax, concept)"}
+            },
+            "required": ["language", "query"]
+        }
+
+    def execute(self, language: str, query: str) -> Dict[str, Any]:
+        # Access local code knowledge base
+        try:
+            kb_path = Path("full_lexicon_atlas/learnings/code_knowledge/python_knowledge.json")
+            if kb_path.exists():
+                with open(kb_path, 'r', encoding='utf-8') as f:
+                    kb = json.load(f)
+
+                if language.lower() == "python":
+                    # Search builtins
+                    if query in kb.get("builtins", {}):
+                        info = kb["builtins"][query]
+                        return {"result": f"Python built-in {query}: {info}"}
+
+                    # Search modules
+                    for mod_name, mod_info in kb.get("modules", {}).items():
+                        if query in mod_info.get("functions", {}):
+                            func_info = mod_info["functions"][query]
+                            return {"result": f"Python {mod_name}.{query}: {func_info}"}
+                        if query in mod_info.get("classes", {}):
+                            class_info = mod_info["classes"][query]
+                            return {"result": f"Python {mod_name}.{query} class: {class_info}"}
+
+                    # Search syntax
+                    if query in kb.get("syntax", {}).get("keywords", []):
+                        return {"result": f"'{query}' is a Python keyword"}
+
+                    # Search concepts
+                    for category, concepts in kb.get("concepts", {}).items():
+                        if query in concepts:
+                            return {"result": f"Programming concept {query}: {concepts[query]}"}
+
+            # Fallback to runtime inspection
+            import inspect
+            import builtins
+            if language.lower() == "python":
+                if hasattr(builtins, query):
+                    obj = getattr(builtins, query)
+                    if callable(obj):
+                        sig = inspect.signature(obj)
+                        return {"result": f"Built-in function: {query}{sig}"}
+                    else:
+                        return {"result": f"Built-in: {query} = {obj}"}
+                # Check standard library
+                import sys
+                modules = sys.modules
+                for mod_name, mod in modules.items():
+                    if mod and hasattr(mod, query):
+                        obj = getattr(mod, query)
+                        if callable(obj):
+                            try:
+                                sig = inspect.signature(obj)
+                                return {"result": f"{mod_name}.{query}{sig}"}
+                            except:
+                                return {"result": f"{mod_name}.{query}: callable"}
+        except Exception as e:
+            return {"result": f"Code knowledge lookup failed: {str(e)}"}
+
+        return {"result": f"No knowledge found for {language} {query}"}
+
+class SearchFilesTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "search_files"
+
+    @property
+    def description(self) -> str:
+        return "Search for a string or regex pattern in files within a directory"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "directory": {"type": "string", "description": "Directory to search in"},
+                "pattern": {"type": "string", "description": "String or regex pattern to search for"}
+            },
+            "required": ["directory", "pattern"]
+        }
+
+    def execute(self, directory: str, pattern: str) -> Dict[str, Any]:
+        import re
+        results = []
+        try:
+            regex = re.compile(pattern)
+            for root, _, files in os.walk(directory):
+                if '.git' in root or 'node_modules' in root or '__pycache__' in root:
+                    continue
+                for file in files:
+                    if file.endswith(('.py', '.js', '.ts', '.jsx', '.tsx', '.txt', '.md', '.json')):
+                        filepath = os.path.join(root, file)
+                        try:
+                            with open(filepath, 'r', encoding='utf-8') as f:
+                                for i, line in enumerate(f):
+                                    if regex.search(line):
+                                        results.append({"file": filepath, "line": i+1, "content": line.strip()})
+                        except Exception:
+                            pass
+            return {"result": results}
+        except Exception as e:
+            return {"error": str(e)}
+
+class ASTParserTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "parse_ast"
+
+    @property
+    def description(self) -> str:
+        return "Parse a Python file using AST to extract functions and classes"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path to the Python file"}
+            },
+            "required": ["path"]
+        }
+
+    def execute(self, path: str) -> Dict[str, Any]:
+        import ast
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            tree = ast.parse(content)
+            
+            functions = []
+            classes = []
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    functions.append({
+                        "name": node.name,
+                        "args": [arg.arg for arg in node.args.args],
+                        "line": node.lineno
+                    })
+                elif isinstance(node, ast.ClassDef):
+                    classes.append({
+                        "name": node.name,
+                        "methods": [n.name for n in node.body if isinstance(n, ast.FunctionDef)],
+                        "line": node.lineno
+                    })
+            return {"result": {"functions": functions, "classes": classes}}
+        except Exception as e:
+            return {"error": str(e)}
+
+# Tool registry
+TOOL_REGISTRY = {
+    "read_file": FileReadTool(),
+    "write_file": FileWriteTool(),
+    "run_command": RunCommandTool(),
+    "lint_code": LintCodeTool(),
+    "lookup": LookupTool(),
+    "learn": LearnTool(),
+    "reflect": ReflectTool(),
+    "code_knowledge": CodeKnowledgeTool(),
+    "search_files": SearchFilesTool(),
+    "parse_ast": ASTParserTool(),
+}

@@ -17,7 +17,7 @@ import os
 class GUInstaller:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Amni-Code Agent Installer v0.3.0")
+        self.root.title("Amni-Code Agent Installer v2.2.0")
         self.root.geometry("700x600")
         self.root.resizable(True, True)
         
@@ -146,7 +146,7 @@ class GUInstaller:
         title_label.grid(row=1, column=0, pady=(0, 5))
         
         # Subtitle
-        subtitle_label = ttk.Label(header_frame, text="v0.3.0 • Intelligent AI Development Assistant",
+        subtitle_label = ttk.Label(header_frame, text="v2.2.0 • Intelligent AI Development Assistant",
                                   style='Status.TLabel')
         subtitle_label.grid(row=2, column=0)
 
@@ -258,20 +258,49 @@ class GUInstaller:
         options_frame = ttk.Frame(left_frame, style='Modern.TFrame')
         options_frame.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky='w')
 
-        # Desktop shortcut toggle
         self.shortcut_var = tk.BooleanVar(value=True)
         shortcut_check = tk.Checkbutton(
-            options_frame,
-            text="Create desktop shortcut",
+            options_frame, text="Create desktop shortcut",
             variable=self.shortcut_var,
-            bg=self.colors['bg_primary'],
-            fg=self.colors['text_primary'],
+            bg=self.colors['bg_primary'], fg=self.colors['text_primary'],
             selectcolor=self.colors['bg_secondary'],
             activebackground=self.colors['bg_primary'],
             activeforeground=self.colors['text_primary'],
             font=('Segoe UI', 9)
         )
         shortcut_check.grid(row=0, column=0, sticky='w')
+        self.path_var = tk.BooleanVar(value=True)
+        path_check = tk.Checkbutton(
+            options_frame, text="Add to PATH (recommended)",
+            variable=self.path_var,
+            bg=self.colors['bg_primary'], fg=self.colors['text_primary'],
+            selectcolor=self.colors['bg_secondary'],
+            activebackground=self.colors['bg_primary'],
+            activeforeground=self.colors['text_primary'],
+            font=('Segoe UI', 9)
+        )
+        path_check.grid(row=1, column=0, sticky='w')
+        model_frame = ttk.Frame(options_frame, style='Modern.TFrame')
+        model_frame.grid(row=2, column=0, sticky='w', pady=(8, 0))
+        ttk.Label(model_frame, text="Models to download:", style='Modern.TLabel',
+                  font=('Segoe UI', 9, 'bold')).grid(row=0, column=0, sticky='w')
+        self.model_vars = {}
+        models_list = [
+            ("Qwen3.5-9B-Neo", "Jackrong/Qwen3.5-9B-Neo", True),
+            ("MLX-Qwen3.5-4B", "Jackrong/MLX-Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-8bit", True),
+        ]
+        for i, (name, repo, default) in enumerate(models_list):
+            var = tk.BooleanVar(value=default)
+            self.model_vars[repo] = (name, var)
+            cb = tk.Checkbutton(
+                model_frame, text=name, variable=var,
+                bg=self.colors['bg_primary'], fg=self.colors['text_primary'],
+                selectcolor=self.colors['bg_secondary'],
+                activebackground=self.colors['bg_primary'],
+                activeforeground=self.colors['text_primary'],
+                font=('Segoe UI', 9)
+            )
+            cb.grid(row=i+1, column=0, sticky='w', padx=(10, 0))
 
         # API Key configuration section
         apikey_frame = ttk.Frame(main_container, style='Card.TFrame', padding="15")
@@ -471,7 +500,7 @@ class GUInstaller:
     def run_installation(self):
         try:
             self.log("=" * 50)
-            self.log("   Amni-Code Agent Installer v0.3.0")
+            self.log("   Amni-Code Agent Installer v2.2.0")
             self.log("=" * 50)
             self.log("")
 
@@ -531,12 +560,13 @@ class GUInstaller:
             self.update_progress((current_step / total_steps) * 100, f"Step {current_step}/8: Setting up directories")
             self.installer.setup_models_dir()
 
-            # Step 7: Download models (optional)
+            # Step 7: Download selected models
             if self.installation_cancelled:
                 return
             current_step += 1
             self.update_progress((current_step / total_steps) * 100, f"Step {current_step}/8: Downloading models")
-            self.installer.download_models()
+            selected = [(repo, name) for repo, (name, var) in self.model_vars.items() if var.get()]
+            self.installer.download_models(selected)
 
             # Step 8: Create shortcut (optional)
             if self.installation_cancelled:
@@ -548,6 +578,10 @@ class GUInstaller:
                 self.installer.create_shortcut()
             else:
                 self.log("Desktop shortcut creation skipped (per user preference).")
+            if self.path_var.get():
+                self.installer.add_to_path()
+            else:
+                self.log("PATH setup skipped (per user preference).")
 
             # Success
             self.update_progress(100, "Installation completed successfully!")
@@ -743,24 +777,63 @@ class AmniCodeInstaller:
         print("Models directory created.")
         return True
 
-    def download_models(self):
+    def download_models(self, selected=None):
         """Download AI models"""
         print("\n[7/8] Downloading AI models...")
+        if not selected:
+            print("No models selected. Skipping download.")
+            return True
         print("This may take several minutes depending on your internet speed...")
-
-        models = [
-            ("Jackrong/Qwen3.5-9B-Neo", "models/Qwen3.5-9B-Neo"),
-            ("Jackrong/MLX-Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "models/MLX-Qwen3.5-4B")
-        ]
-
-        for model_repo, local_dir in models:
+        for model_repo, name in selected:
+            local_dir = f"models/{name}"
             print(f"\nDownloading {model_repo}...")
             cmd = f"huggingface-cli download {model_repo} --local-dir {local_dir} --local-dir-use-symlinks False"
             if not self.run_command(cmd, f"Downloading {model_repo}", check=False):
                 print(f"Failed to download {model_repo}. You can retry later or download manually.")
-
         print("\nModel downloads completed.")
         return True
+
+    def add_to_path(self):
+        """Add install dir to user PATH"""
+        print("\n[PATH] Adding Amni-Code to user PATH...")
+        exe_dir = str(self.project_root / "target" / "release")
+        if platform.system() == "Windows":
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                     r"Environment", 0,
+                                     winreg.KEY_READ | winreg.KEY_WRITE)
+                try:
+                    current, _ = winreg.QueryValueEx(key, "Path")
+                except FileNotFoundError:
+                    current = ""
+                if exe_dir.lower() not in current.lower():
+                    new_path = f"{current};{exe_dir}" if current else exe_dir
+                    winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path)
+                    print(f"Added {exe_dir} to user PATH.")
+                    subprocess.run(["setx", "AMNI_HOME", str(self.project_root)],
+                                 capture_output=True, text=True)
+                else:
+                    print("Already in PATH.")
+                winreg.CloseKey(key)
+                return True
+            except Exception as e:
+                print(f"Failed to update PATH via registry: {e}")
+                print(f"Manually add to PATH: {exe_dir}")
+                return False
+        else:
+            shell_rc = Path.home() / ".bashrc"
+            if (Path.home() / ".zshrc").exists():
+                shell_rc = Path.home() / ".zshrc"
+            line = f'\nexport PATH="$PATH:{exe_dir}"\n'
+            content = shell_rc.read_text() if shell_rc.exists() else ""
+            if exe_dir not in content:
+                with open(shell_rc, "a") as f:
+                    f.write(line)
+                print(f"Added to {shell_rc}")
+            else:
+                print("Already in PATH.")
+            return True
 
     def create_shortcut(self):
         """Create desktop shortcut"""

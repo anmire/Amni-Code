@@ -1,0 +1,315 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amni-Code Installer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--accent:#00d4ff;--accent2:#7c3aed;--bg:#0a0a0f;--card:rgba(15,15,25,0.85);--glass:rgba(255,255,255,0.05);--text:#e4e4e7;--dim:#71717a;--ok:#22c55e;--err:#ef4444;--warn:#f59e0b}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;width:100vw}
+canvas#gl{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;background:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,0.08),transparent 60%)}
+.app{position:relative;z-index:2;display:flex;flex-direction:column;height:100vh;padding:24px 40px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px}
+.logo{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;box-shadow:0 0 30px rgba(0,212,255,0.3)}
+.header h1{font-size:22px;font-weight:600;letter-spacing:-0.5px}
+.header span{font-size:13px;color:var(--dim);margin-left:auto}
+.steps{display:flex;gap:0;margin-bottom:28px;position:relative}
+.steps::before{content:'';position:absolute;top:50%;left:24px;right:24px;height:2px;background:rgba(255,255,255,0.08);transform:translateY(-50%)}
+.step-dot{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;background:var(--card);border:2px solid rgba(255,255,255,0.1);position:relative;z-index:1;transition:all 0.4s ease;flex:1}
+.step-dot.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 20px rgba(0,212,255,0.25)}
+.step-dot.done{border-color:var(--ok);background:rgba(34,197,94,0.15);color:var(--ok)}
+.step-label{position:absolute;top:54px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--dim);white-space:nowrap;transition:color 0.3s}
+.step-dot.active .step-label{color:var(--accent)}
+.card{background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:32px;backdrop-filter:blur(20px);flex:1;overflow-y:auto;position:relative}
+.page{display:none;animation:fadeIn 0.4s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.page h2{font-size:20px;font-weight:600;margin-bottom:6px}
+.page .sub{color:var(--dim);font-size:14px;margin-bottom:24px}
+.prereq{display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;background:var(--glass);margin-bottom:10px;transition:all 0.3s}
+.prereq .icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.prereq .icon.ok{background:rgba(34,197,94,0.15);color:var(--ok)}
+.prereq .icon.no{background:rgba(239,68,68,0.15);color:var(--err)}
+.prereq .icon.wait{background:rgba(245,158,11,0.15);color:var(--warn);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.prereq .info{flex:1}
+.prereq .info .name{font-weight:600;font-size:14px}
+.prereq .info .ver{font-size:12px;color:var(--dim)}
+.prereq .dl-btn{padding:6px 14px;border-radius:8px;background:var(--accent);color:#000;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:transform 0.2s}
+.prereq .dl-btn:hover{transform:scale(1.05)}
+.opt-group{margin-bottom:18px}
+.opt-group label{font-size:13px;font-weight:500;display:block;margin-bottom:8px;color:var(--dim)}
+.opt-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--glass);margin-bottom:8px;cursor:pointer;transition:background 0.2s}
+.opt-row:hover{background:rgba(255,255,255,0.08)}
+.opt-row input[type=checkbox]{accent-color:var(--accent);width:18px;height:18px}
+.opt-row .opt-info{flex:1}
+.opt-row .opt-name{font-size:14px;font-weight:500}
+.opt-row .opt-desc{font-size:12px;color:var(--dim)}
+.opt-row .opt-size{font-size:12px;color:var(--dim);font-family:'Consolas',monospace}
+.install-mode{display:flex;gap:12px;margin-bottom:20px}
+.mode-card{flex:1;padding:18px;border-radius:12px;background:var(--glass);border:2px solid transparent;cursor:pointer;transition:all 0.3s;text-align:center}
+.mode-card.selected{border-color:var(--accent);background:rgba(0,212,255,0.05)}
+.mode-card h3{font-size:14px;margin-bottom:4px}
+.mode-card p{font-size:12px;color:var(--dim)}
+.install-dir{display:flex;gap:10px;margin-bottom:16px}
+.install-dir input{flex:1;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.3s}
+.install-dir input:focus{border-color:var(--accent)}
+.progress-section{margin-bottom:20px}
+.progress-step{font-size:14px;font-weight:500;margin-bottom:8px}
+.progress-bar{height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;margin-bottom:12px}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.5s ease;position:relative}
+.progress-fill::after{content:'';position:absolute;top:0;right:0;bottom:0;width:40px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3));animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{transform:translateX(-40px)}100%{transform:translateX(40px)}}
+.log{background:rgba(0,0,0,0.4);border-radius:10px;padding:14px;font-family:'Consolas',monospace;font-size:12px;color:var(--dim);max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.6}
+.log .ok{color:var(--ok)}.log .err{color:var(--err)}.log .hi{color:var(--accent)}
+.done-icon{width:80px;height:80px;border-radius:50%;background:rgba(34,197,94,0.12);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 20px;animation:scaleIn 0.5s ease}
+@keyframes scaleIn{from{transform:scale(0)}to{transform:scale(1)}}
+.done-msg{text-align:center}
+.done-msg h2{font-size:24px;margin-bottom:8px}
+.done-msg p{color:var(--dim);margin-bottom:24px}
+.footer{display:flex;justify-content:flex-end;gap:12px;margin-top:20px;padding-top:16px}
+.btn{padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all 0.2s;font-family:inherit}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 16px rgba(0,212,255,0.25)}
+.btn-ghost{background:transparent;color:var(--dim);border:1px solid rgba(255,255,255,0.1)}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,0.2)}
+.btn-ok{background:var(--ok);color:#000}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.err-card{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:14px;margin-top:12px;font-size:13px;color:var(--err)}
+</style></head><body>
+<canvas id="gl"></canvas>
+<div class="overlay"></div>
+<div class="app">
+<div class="header">
+<div class="logo">A</div>
+<div><h1>Amni-Code Installer</h1></div>
+<span id="ver">v2.2.0</span>
+</div>
+<div class="steps" id="steps">
+<div class="step-dot active" data-step="0">1<span class="step-label">Welcome</span></div>
+<div class="step-dot" data-step="1">2<span class="step-label">Prerequisites</span></div>
+<div class="step-dot" data-step="2">3<span class="step-label">Options</span></div>
+<div class="step-dot" data-step="3">4<span class="step-label">Install</span></div>
+<div class="step-dot" data-step="4">5<span class="step-label">Done</span></div>
+</div>
+<div class="card">
+<div class="page active" id="p0">
+<h2>Welcome to Amni-Code</h2>
+<p class="sub">Self-hosted AI coding agent with a full embedded IDE. No cloud required.</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+<div class="opt-row" style="cursor:default"><div class="opt-info"><div class="opt-name">🤖 Multi-Model AI</div><div class="opt-desc">OpenAI, Anthropic, xAI, Ollama, local GGUF</div></div></div>
+<div class="opt-row" style="cursor:default"><div class="opt-info"><div class="opt-name">🌐 10 Languages</div><div class="opt-desc">EN, ES, FR, DE, JA, ZH, KO, PT, AR, RU</div></div></div>
+<div class="opt-row" style="cursor:default"><div class="opt-info"><div class="opt-name">🖥️ Split Panes</div><div class="opt-desc">Up to 3 concurrent agent sessions</div></div></div>
+<div class="opt-row" style="cursor:default"><div class="opt-info"><div class="opt-name">📦 Single Binary</div><div class="opt-desc">No Node, Python, or Docker required to run</div></div></div>
+</div>
+</div>
+<div class="page" id="p1">
+<h2>Prerequisites</h2>
+<p class="sub">Checking your system for required tools...</p>
+<div id="prereq-list">
+<div class="prereq" id="pr-rust"><div class="icon wait">⏳</div><div class="info"><div class="name">Rust Toolchain</div><div class="ver" id="rust-ver">Checking...</div></div><button class="dl-btn" style="display:none" onclick="openLink('https://rustup.rs')">Install Rust</button></div>
+<div class="prereq" id="pr-git"><div class="icon wait">⏳</div><div class="info"><div class="name">Git</div><div class="ver" id="git-ver">Checking...</div></div><button class="dl-btn" style="display:none" onclick="openLink('https://git-scm.com')">Install Git</button></div>
+</div>
+<div id="prereq-note" style="margin-top:14px;font-size:13px;color:var(--dim)"></div>
+</div>
+<div class="page" id="p2">
+<h2>Installation Options</h2>
+<p class="sub">Choose how to install Amni-Code</p>
+<div class="install-mode">
+<div class="mode-card selected" id="mode-bin" onclick="setMode(false)"><h3>⚡ Pre-built Binary</h3><p>Download ready-to-run binary (~8MB)</p></div>
+<div class="mode-card" id="mode-src" onclick="setMode(true)"><h3>🔧 Build from Source</h3><p>Clone repo & compile (requires Rust)</p></div>
+</div>
+<div class="opt-group"><label>Install Location</label>
+<div class="install-dir"><input type="text" id="idir" value=""></div></div>
+<div class="opt-group"><label>System Integration</label>
+<div class="opt-row" onclick="toggle('opt-path')"><input type="checkbox" id="opt-path" checked><div class="opt-info"><div class="opt-name">Add to PATH</div><div class="opt-desc">Run 'amni' from any terminal</div></div></div>
+<div class="opt-row" onclick="toggle('opt-shortcut')"><input type="checkbox" id="opt-shortcut" checked><div class="opt-info"><div class="opt-name">Desktop Shortcut</div><div class="opt-desc">Quick launch from desktop</div></div></div>
+</div>
+<div class="opt-group"><label>Models (downloaded via HTTPS — no Python required)</label>
+<div class="opt-row" onclick="toggle('m-qwen9b')"><input type="checkbox" id="m-qwen9b"><div class="opt-info"><div class="opt-name">Qwen3.5-9B-Neo</div><div class="opt-desc">General-purpose coding model</div></div><span class="opt-size">~18 GB</span></div>
+<div class="opt-row" onclick="toggle('m-qwen4b')"><input type="checkbox" id="m-qwen4b"><div class="opt-info"><div class="opt-name">MLX-Qwen3.5-4B (8-bit)</div><div class="opt-desc">Lightweight reasoning model</div></div><span class="opt-size">~4 GB</span></div>
+</div>
+</div>
+<div class="page" id="p3">
+<h2>Installing</h2>
+<p class="sub" id="install-sub">Please wait while Amni-Code is installed...</p>
+<div class="progress-section">
+<div class="progress-step" id="prog-step">Preparing...</div>
+<div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+</div>
+<div class="log" id="log"></div>
+<div class="err-card" id="err-card" style="display:none"></div>
+</div>
+<div class="page" id="p4">
+<div class="done-msg">
+<div class="done-icon">✓</div>
+<h2>Installation Complete!</h2>
+<p>Amni-Code is ready. Launch it from your terminal or desktop.</p>
+</div>
+</div>
+</div>
+<div class="footer">
+<button class="btn btn-ghost" id="btn-back" onclick="prev()" style="display:none">Back</button>
+<button class="btn btn-primary" id="btn-next" onclick="next()">Get Started</button>
+</div>
+</div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+let page=0,prereqs=null,srcBuild=false,installing=false;
+const defaultDir=(()=>{const u=navigator.userAgent;return u.includes('Win')?`${(location.origin.includes('127')?'C:\\Users':'~')}\\.amni`:'~/.amni'})();
+function initGL(){
+const c=$('#gl'),gl=c.getContext('webgl',{alpha:false});
+if(!gl)return;
+c.width=c.clientWidth;c.height=c.clientHeight;
+const vs=gl.createShader(gl.VERTEX_SHADER);
+gl.shaderSource(vs,'attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}');
+gl.compileShader(vs);
+const fs=gl.createShader(gl.FRAGMENT_SHADER);
+gl.shaderSource(fs,`precision mediump float;
+uniform float t;uniform vec2 r;
+void main(){
+vec2 u=gl_FragCoord.xy/r;
+float s=t*0.15;
+vec3 c=vec3(0);
+c.r=sin(u.x*3.+s)*sin(u.y*2.+s*1.3)*0.12+0.06;
+c.g=sin(u.x*2.5+s*0.7)*cos(u.y*3.+s)*0.08+0.04;
+c.b=cos(u.x*2.+s*1.1)*sin(u.y*2.5+s*0.9)*0.18+0.12;
+c+=0.02*sin(u.x*8.+u.y*6.+s*2.);
+gl_FragColor=vec4(c,1);}`);
+gl.compileShader(fs);
+const pg=gl.createProgram();
+gl.attachShader(pg,vs);gl.attachShader(pg,fs);gl.linkProgram(pg);gl.useProgram(pg);
+const b=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,b);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const pl=gl.getAttribLocation(pg,'p');
+gl.enableVertexAttribArray(pl);gl.vertexAttribPointer(pl,2,gl.FLOAT,false,0,0);
+const tl=gl.getUniformLocation(pg,'t'),rl=gl.getUniformLocation(pg,'r');
+let start=performance.now();
+(function draw(){
+gl.viewport(0,0,c.width,c.height);
+gl.uniform1f(tl,(performance.now()-start)/1000);
+gl.uniform2f(rl,c.width,c.height);
+gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+requestAnimationFrame(draw);
+})();
+window.addEventListener('resize',()=>{c.width=c.clientWidth;c.height=c.clientHeight;});
+}
+function goPage(n){
+page=n;
+$$('.page').forEach(p=>p.classList.remove('active'));
+$(`#p${n}`).classList.add('active');
+$$('.step-dot').forEach((d,i)=>{
+d.classList.toggle('active',i===n);
+d.classList.toggle('done',i<n);
+});
+$('#btn-back').style.display=n>0&&n<4?'':'none';
+const next=$('#btn-next');
+if(n===0){next.textContent='Get Started';next.disabled=false;next.className='btn btn-primary';}
+else if(n===1){next.textContent='Next';next.disabled=!prereqs||(srcBuild&&!prereqs.rust);next.className='btn btn-primary';}
+else if(n===2){next.textContent='Install';next.disabled=false;next.className='btn btn-primary';}
+else if(n===3){next.style.display='none';$('#btn-back').style.display='none';}
+else if(n===4){next.textContent='Launch Amni-Code';next.disabled=false;next.style.display='';next.className='btn btn-ok';}
+}
+function next(){
+if(page===1&&srcBuild&&prereqs&&!prereqs.rust)return;
+if(page===2){startInstall();goPage(3);return;}
+if(page===4){fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:'"amni"'});return;}
+goPage(page+1);
+if(page===1)checkPrereqs();
+}
+function prev(){if(page>0&&page<3)goPage(page-1);}
+function toggle(id){const el=$(`#${id}`);el.checked=!el.checked;}
+function setMode(src){
+srcBuild=src;
+$('#mode-bin').classList.toggle('selected',!src);
+$('#mode-src').classList.toggle('selected',src);
+if(prereqs)$('#btn-next').disabled=src&&!prereqs.rust;
+}
+async function checkPrereqs(){
+try{
+const r=await fetch('/api/prereqs');
+prereqs=await r.json();
+const setP=(id,ok,ver)=>{
+const el=$(`#${id}`);
+el.querySelector('.icon').className=`icon ${ok?'ok':'no'}`;
+el.querySelector('.icon').textContent=ok?'✓':'✗';
+el.querySelector('.ver').textContent=ver||'Not found';
+const btn=el.querySelector('.dl-btn');
+if(btn)btn.style.display=ok?'none':'';
+};
+setP('pr-rust',prereqs.rust,prereqs.rust_ver);
+setP('pr-git',prereqs.git,prereqs.git_ver);
+$('#ver').textContent=`v2.2.0 • ${prereqs.os}/${prereqs.arch}`;
+if(!prereqs.rust&&!prereqs.git)$('#prereq-note').textContent='Install the missing tools above, then click "Next". Rust is only required for "Build from Source" mode.';
+else if(!prereqs.rust)$('#prereq-note').textContent='Rust is optional — you can use "Pre-built Binary" mode without it.';
+else $('#prereq-note').textContent='All prerequisites met!';
+$('#btn-next').disabled=srcBuild&&!prereqs.rust;
+}catch(e){$('#prereq-note').textContent='Failed to check prerequisites: '+e.message;}
+}
+function log(msg,cls){
+const el=$('#log');
+if(cls){el.innerHTML+=`<span class="${cls}">${msg}</span>\n`;}
+else{el.textContent+=msg+'\n';}
+el.scrollTop=el.scrollHeight;
+}
+async function startInstall(){
+installing=true;
+const models=[];
+if($('#m-qwen9b').checked)models.push('Jackrong/Qwen3.5-9B-Neo');
+if($('#m-qwen4b').checked)models.push('Jackrong/MLX-Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-8bit');
+const body={install_dir:$('#idir').value||defaultDir,add_path:$('#opt-path').checked,shortcut:$('#opt-shortcut').checked,models,source_build:srcBuild};
+log('Starting installation...','hi');
+log(`Mode: ${srcBuild?'Build from source':'Pre-built binary'}`);
+log(`Directory: ${body.install_dir}`);
+if(models.length)log(`Models: ${models.length} selected`);
+try{
+const resp=await fetch('/api/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+const reader=resp.body.getReader();
+const decoder=new TextDecoder();
+let buf='';
+while(true){
+const{done,value}=await reader.read();
+if(done)break;
+buf+=decoder.decode(value,{stream:true});
+const lines=buf.split('\n');
+buf=lines.pop()||'';
+for(const line of lines){
+if(!line.startsWith('data:'))continue;
+try{
+const p=JSON.parse(line.slice(5));
+$('#prog-step').textContent=p.msg;
+$('#prog-fill').style.width=p.pct+'%';
+log(p.msg,p.err?'err':'ok');
+if(p.err){
+$('#err-card').style.display='';
+$('#err-card').textContent=p.err;
+$('#install-sub').textContent='Installation encountered an error';
+$('#btn-back').style.display='';
+$('#btn-next').style.display='';
+$('#btn-next').textContent='Retry';
+$('#btn-next').disabled=false;
+installing=false;return;
+}
+if(p.done){goPage(4);installing=false;return;}
+}catch(e){}
+}
+}
+}catch(e){
+log('Connection error: '+e.message,'err');
+$('#err-card').style.display='';
+$('#err-card').textContent=e.message;
+installing=false;
+}
+}
+async function openLink(url){
+try{await fetch('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(url)});}
+catch(e){window.open(url,'_blank');}
+}
+document.addEventListener('DOMContentLoaded',()=>{
+if(location.protocol==='file:'){
+document.body.innerHTML='<div style="font-family:system-ui;color:#e4e4e7;background:#0a0a0f;height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;"><div style="font-size:48px">⚠️</div><div style="font-size:20px;font-weight:600">Run the installer binary</div><div style="color:#71717a;font-size:14px">This file must be served by amni-installer.exe — do not open it directly in a browser.</div><code style="background:rgba(255,255,255,0.08);padding:8px 18px;border-radius:8px;font-size:13px">cargo run --manifest-path installer/Cargo.toml</code></div>';
+return;
+}
+initGL();
+$('#idir').value=defaultDir;
+});
+</script></body></html>

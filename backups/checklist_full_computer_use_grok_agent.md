@@ -1,0 +1,16 @@
+# Checklist for Full Computer-Use Grok Agent in Amni-Code
+- [x] Scan architecture map (created architecture_map.md)
+- [x] Generate Guardian Council proposals document with Rikku, Tidus, Lulu, Wakka, Kimahri, Auron views on UI, guardrails, agentic tools, integration (GUARDIAN_COUNCIL_grok_computer_use.md)
+- [x] Backup original files to backups/ with .bak (App.tsx, package.json, etc)
+- [x] Create/update architecture_map.md mapping all files/dependencies
+- [x] Add model select for Grok/local, prompt buttons (like ollama: quick tasks), guardrail toggle
+- [x] Implement agentic tools: file read/edit (live), terminal exec (with approval for dangerous), git ops, ssh/vm stubs (in tools.py + UI)
+- [x] Use concise syntax, ternary, no comments, no empty lines, min lines in code
+- [x] Integrate guardrails toggle (user confirm for rm, git push, exec cmds)
+- [x] Reuse Amni-Ai server patterns for interface but keep in Amni-Code
+- [x] Add async, parallel where possible (no loops)
+- [x] Run linter/pylance (for py parts), test
+- [x] Update READMEs, docs
+- [x] Update changelog.md
+- [x] Test full flow, trace
+- [ ] Confirm with user

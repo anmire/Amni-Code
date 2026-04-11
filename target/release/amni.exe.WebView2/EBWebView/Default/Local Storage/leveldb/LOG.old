@@ -1,0 +1,75 @@
+2026/04/06-01:40:49.277 b180 Reusing MANIFEST C:\Users\antho\Documents\ai\Amni-Code\target\release\amni.exe.WebView2\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001
+2026/04/06-01:40:49.282 b180 Recovering log #3
+2026/04/06-01:40:49.283 b180 Reusing old log C:\Users\antho\Documents\ai\Amni-Code\target\release\amni.exe.WebView2\EBWebView\Default\Local Storage\leveldb/000003.log 
+2026/04/06-01:46:04.565 b1f0 Level-0 table #5: started
+2026/04/06-01:46:04.747 b1f0 Level-0 table #5: 31824 bytes OK
+2026/04/06-01:46:04.832 b1f0 Delete type=0 #3
+2026/04/06-08:45:37.784 b1f0 Level-0 table #7: started
+2026/04/06-08:45:37.855 b1f0 Level-0 table #7: 27821 bytes OK
+2026/04/06-08:45:37.863 b1f0 Delete type=0 #4
+2026/04/06-08:45:48.175 b1f0 Level-0 table #9: started
+2026/04/06-08:45:48.190 b1f0 Level-0 table #9: 25490 bytes OK
+2026/04/06-08:45:48.202 b1f0 Delete type=0 #6
+2026/04/06-08:47:25.761 b1f0 Level-0 table #11: started
+2026/04/06-08:47:25.832 b1f0 Level-0 table #11: 32382 bytes OK
+2026/04/06-08:47:25.839 b1f0 Delete type=0 #8
+2026/04/06-08:47:58.090 b1f0 Level-0 table #13: started
+2026/04/06-08:47:58.164 b1f0 Level-0 table #13: 32632 bytes OK
+2026/04/06-08:47:58.170 b1f0 Delete type=0 #10
+2026/04/06-08:48:05.717 b1f0 Level-0 table #15: started
+2026/04/06-08:48:05.737 b1f0 Level-0 table #15: 33231 bytes OK
+2026/04/06-08:48:05.741 b1f0 Delete type=0 #12
+2026/04/06-08:48:05.741 b1f0 Compacting 4@0 + 1@1 files
+2026/04/06-08:48:05.746 b1f0 Generated table #16@0: 3 keys, 33334 bytes
+2026/04/06-08:48:05.746 b1f0 Compacted 4@0 + 1@1 files => 33334 bytes
+2026/04/06-08:48:05.749 b1f0 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/04/06-08:48:05.750 b1f0 Delete type=2 #7
+2026/04/06-08:48:05.750 b1f0 Delete type=2 #9
+2026/04/06-08:48:05.750 b1f0 Delete type=2 #11
+2026/04/06-08:48:05.750 b1f0 Delete type=2 #13
+2026/04/06-08:48:05.750 b1f0 Delete type=2 #15
+2026/04/06-08:48:12.928 b1f0 Level-0 table #18: started
+2026/04/06-08:48:12.952 b1f0 Level-0 table #18: 34153 bytes OK
+2026/04/06-08:48:12.958 b1f0 Delete type=0 #14
+2026/04/06-08:48:18.552 b1f0 Level-0 table #20: started
+2026/04/06-08:48:18.629 b1f0 Level-0 table #20: 34514 bytes OK
+2026/04/06-08:48:18.633 b1f0 Delete type=0 #17
+2026/04/06-08:48:24.294 b1f0 Level-0 table #22: started
+2026/04/06-08:48:24.375 b1f0 Level-0 table #22: 34659 bytes OK
+2026/04/06-08:48:24.379 b1f0 Delete type=0 #19
+2026/04/06-08:48:29.934 b1f0 Level-0 table #24: started
+2026/04/06-08:48:29.966 b1f0 Level-0 table #24: 35314 bytes OK
+2026/04/06-08:48:29.970 b1f0 Delete type=0 #21
+2026/04/06-08:48:29.971 b1f0 Compacting 4@0 + 1@1 files
+2026/04/06-08:48:29.977 b1f0 Generated table #25@0: 3 keys, 35417 bytes
+2026/04/06-08:48:29.977 b1f0 Compacted 4@0 + 1@1 files => 35417 bytes
+2026/04/06-08:48:29.981 b1f0 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/04/06-08:48:29.981 b1f0 Delete type=2 #16
+2026/04/06-08:48:29.981 b1f0 Delete type=2 #18
+2026/04/06-08:48:29.981 b1f0 Delete type=2 #20
+2026/04/06-08:48:29.981 b1f0 Delete type=2 #22
+2026/04/06-08:48:29.981 b1f0 Delete type=2 #24
+2026/04/06-08:48:39.733 b1f0 Level-0 table #27: started
+2026/04/06-08:48:39.738 b1f0 Level-0 table #27: 35972 bytes OK
+2026/04/06-08:48:39.745 b1f0 Delete type=0 #23
+2026/04/06-08:48:59.881 b1f0 Level-0 table #29: started
+2026/04/06-08:48:59.920 b1f0 Level-0 table #29: 36157 bytes OK
+2026/04/06-08:48:59.924 b1f0 Delete type=0 #26
+2026/04/06-08:49:08.640 b1f0 Level-0 table #31: started
+2026/04/06-08:49:08.734 b1f0 Level-0 table #31: 36230 bytes OK
+2026/04/06-08:49:08.738 b1f0 Delete type=0 #28
+2026/04/06-08:49:19.050 b1f0 Level-0 table #33: started
+2026/04/06-08:49:19.145 b1f0 Level-0 table #33: 36277 bytes OK
+2026/04/06-08:49:19.150 b1f0 Delete type=0 #30
+2026/04/06-08:49:19.151 b1f0 Compacting 4@0 + 1@1 files
+2026/04/06-08:49:19.155 b1f0 Generated table #34@0: 3 keys, 36380 bytes
+2026/04/06-08:49:19.155 b1f0 Compacted 4@0 + 1@1 files => 36380 bytes
+2026/04/06-08:49:19.184 b1f0 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/04/06-08:49:19.185 b1f0 Delete type=2 #25
+2026/04/06-08:49:19.185 b1f0 Delete type=2 #27
+2026/04/06-08:49:19.185 b1f0 Delete type=2 #29
+2026/04/06-08:49:19.185 b1f0 Delete type=2 #31
+2026/04/06-08:49:19.185 b1f0 Delete type=2 #33
+2026/04/06-08:49:26.788 b1f0 Level-0 table #36: started
+2026/04/06-08:49:26.957 b1f0 Level-0 table #36: 37775 bytes OK
+2026/04/06-08:49:26.975 b1f0 Delete type=0 #32

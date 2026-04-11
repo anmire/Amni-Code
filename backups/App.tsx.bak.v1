@@ -1,0 +1,197 @@
+import { useEffect, useRef, useState } from 'react';
+import { Terminal as TerminalIcon, Code, Settings, Send, FileText, Folder } from 'lucide-react';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
+import './App.css';
+
+function App() {
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const [prompt, setPrompt] = useState('');
+
+  useEffect(() => {
+    if (!terminalContainerRef.current) return;
+
+    const term = new Terminal({
+      theme: {
+        background: '#1e1e1e',
+        foreground: '#cccccc',
+      },
+      fontFamily: '"Consolas", "Courier New", monospace',
+      fontSize: 13,
+    });
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    term.open(terminalContainerRef.current);
+    fitAddon.fit();
+
+    term.writeln('\x1b[1;32mAmni-Coder Test Environment Initialized.\x1b[0m');
+    term.writeln('$ Ready for commands...');
+
+    xtermRef.current = term;
+
+    const handleResize = () => fitAddon.fit();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      term.dispose();
+      xtermRef.current = null;
+    };
+  }, []);
+
+  const handleExecuteAgents = async () => {
+    if (!prompt.trim()) {
+      xtermRef.current?.writeln('\x1b[1;31mError: Prompt is empty. Please describe the task.\x1b[0m');
+      return;
+    }
+    
+    xtermRef.current?.writeln(`\x1b[1;34m[Orchestrator]\x1b[0m Dispatching task: "${prompt}"`);
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt, mode: 'Parallel Auto' }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.plan) {
+        data.plan.forEach((step: any) => {
+          let color = '\x1b[1;33m'; // Yellow
+          if (step.agent === 'Coder') color = '\x1b[1;35m'; // Magenta
+          if (step.agent === 'Reviewer') color = '\x1b[1;36m'; // Cyan
+          
+          xtermRef.current?.writeln(`${color}[${step.agent} Agent]\x1b[0m ${step.action}`);
+        });
+      }
+      
+      if (data.tool_test) {
+        xtermRef.current?.writeln('\x1b[1;32m[Tool Execution Result]\x1b[0m AST Data Extracted!');
+        console.log("AST Result:", data.tool_test);
+      }
+      
+      xtermRef.current?.writeln(`\x1b[1;32m[Orchestrator]\x1b[0m ${data.message}`);
+      
+    } catch (error: any) {
+      xtermRef.current?.writeln(`\x1b[1;31m[Error]\x1b[0m Failed to connect to local Amni-Ai: ${error.message}`);
+    }
+    
+    setPrompt('');
+  };
+
+  return (
+    <div className="app-container">
+      {/* Sidebar */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <Settings size={18} />
+          Amni-Coder Agent
+        </div>
+        
+        <div className="controls-section">
+          <div className="control-item">
+            <span>Model:</span>
+            <select style={{ background: '#3c3c3c', color: 'white', border: 'none', padding: '4px', borderRadius: '4px' }}>
+              <option>Amni-A1 (Local)</option>
+            </select>
+          </div>
+          <div className="control-item">
+            <span>Mode:</span>
+            <select style={{ background: '#3c3c3c', color: 'white', border: 'none', padding: '4px', borderRadius: '4px' }}>
+              <option>Parallel Auto</option>
+              <option>Step-by-Step</option>
+            </select>
+          </div>
+        </div>
+
+        {/* File Explorer */}
+        <div className="file-explorer">
+          <div className="file-explorer-header">Explorer</div>
+          <div className="folder-item">
+            <Folder size={14} fill="#e8a838" color="#e8a838" />
+            Amni-Coder
+          </div>
+          <div className="file-item active">
+            <FileText size={14} color="#519aba" />
+            main.py
+          </div>
+          <div className="file-item">
+            <FileText size={14} color="#519aba" />
+            utils.py
+          </div>
+          <div className="file-item">
+            <FileText size={14} color="#e37933" />
+            requirements.txt
+          </div>
+        </div>
+
+        <div className="prompt-section">
+          <textarea 
+            className="prompt-box" 
+            placeholder="Describe the feature or change you want to make..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+          <button className="control-btn" onClick={handleExecuteAgents}>
+            <Send size={16} /> Execute Agents
+          </button>
+        </div>
+      </div>
+
+      {/* Main Code Area */}
+      <div className="main-content">
+        <div className="editor-header">
+          <Code size={16} /> Code Preview
+        </div>
+        <div className="editor-content">
+          <div className="diff-pane original">
+            <div className="pane-title">Original (main.py)</div>
+            <pre className="code-area original-code">
+{`def calculate_sum(a, b):
+    return a + b
+    
+def main():
+    print(calculate_sum(5, 10))
+`}
+            </pre>
+          </div>
+          <div className="diff-pane">
+            <div className="pane-title">Proposed Changes</div>
+            <pre className="code-area modified-code">
+<div className="code-line added">{`def calculate_sum(a, b):
+    """Returns the sum of two numbers."""
+    return a + b`}</div>
+{`    
+def multiply(a, b):
+    return a * b
+    
+def main():
+    print(calculate_sum(5, 10))
+    print(multiply(5, 10))`}
+            </pre>
+          </div>
+        </div>
+      </div>
+
+      {/* Terminal Area */}
+      <div className="terminal-container">
+        <div className="terminal-header">
+          <TerminalIcon size={16} /> Test Environment Terminal
+        </div>
+        <div className="terminal-wrapper" ref={terminalContainerRef}></div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

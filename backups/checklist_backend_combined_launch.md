@@ -1,0 +1,14 @@
+- [x] Scan architecture_map.md
+- [x] Backup launcher/server.py, Amni-Code/frontend/src/App.tsx, Amni-Code/architecture_map.md, Amni-Ai/architecture_map.md, changelogs to backups/ with .bak.v2
+- [x] Create Amni-Code/server.py with Flask backend on port 8001 for /api/execute (mock plan response, no comments, concise, ternary)
+- [x] Create Amni-Code/run.bat for combined launch
+- [x] Update launcher/server.py to add "code-all" launch using the bat, update dev to use 8001 backend
+- [x] Update frontend/src/App.tsx fetch URL to http://localhost:8001/api/execute
+- [x] Update package.json dev script if needed
+- [x] Update all architecture_map.md and changelog.md
+- [x] Run linter on frontend and pylance on backend
+- [x] Test launch from launcher, test the UI with prompt
+- [x] Update GUARDIAN_COUNCIL and other docs
+- [x] Append to changelog.md with version
+- [x] Update architecture map
+- [x] Confirm no duplicate functions, no comments, concise code

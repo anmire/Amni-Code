@@ -1,0 +1,10 @@
+- [x] Load skill
+- [x] Scan architecture_map.md
+- [x] Talk to guardians, list proposals, majority ruling
+- [x] Backup run.bat to backups/
+- [x] Create this checklist
+- [x] Update run.bat to git pull latest, cargo build --release if changes (incremental), run exe
+- [x] Remove comments, concise bat syntax
+- [x] Update changelog and arch map
+- [x] Test with terminal
+- [ ] User confirm no issues with git pull

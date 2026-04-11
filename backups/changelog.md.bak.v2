@@ -1,0 +1,2 @@
+# Changelog
+2026-03-23 v0.1.0 Grok Computer Use Agent: added full computer-use like Claude with live edits, terminal, git, ssh stubs, guardrails toggle, prompt buttons, model select (grok-beta). Extended Amni-Code frontend and tools. Reused Amni-Ai patterns. Architecture updated. Guardians approved with majority for safety. No comments, concise ternary code. Tested terminal integration.2026-03-23 v0.1.1 Launcher Integration: added Amni-Code to launcher for easy launch (dev server) and build. Updated launcher server.py with new project entry, icon, and launches.

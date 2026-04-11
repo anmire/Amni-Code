@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amni-Code</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#252536;--text:#e2e2ef;--text2:#8888a8;--accent:#6c63ff;--accent2:#8b7cff;--green:#3ddc84;--red:#ff5c5c;--orange:#ffab40;--font:'Segoe UI',system-ui,-apple-system,sans-serif;--mono:'Cascadia Code','Fira Code','JetBrains Mono',monospace}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+.app{display:flex;height:100vh;width:100vw}
+.chat-col{flex:1;display:flex;flex-direction:column;min-width:0}
+.diff-col{width:0;border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width .3s;overflow:hidden}
+.diff-col.open{width:45%}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.header h1{font-size:16px;font-weight:600;letter-spacing:-.3px}
+.header h1 span{color:var(--accent);font-weight:700}
+.header-actions{display:flex;gap:8px;align-items:center}
+.icon-btn{background:none;border:1px solid var(--border);color:var(--text2);width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.icon-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.messages::-webkit-scrollbar{width:6px}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.msg{max-width:85%;padding:14px 18px;border-radius:14px;line-height:1.6;font-size:14px;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:var(--surface2);border-bottom-left-radius:4px}
+.msg.assistant pre{background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;font-family:var(--mono);font-size:13px;line-height:1.5}
+.msg.assistant code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:2px 6px;border-radius:4px}
+.msg.assistant pre code{background:none;padding:0}
+.msg.system{align-self:center;background:transparent;color:var(--text2);font-size:13px;text-align:center;padding:8px}
+.tool-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:6px;margin:2px 4px 2px 0;font-family:var(--mono)}
+.tool-badge.success{background:#3ddc8422;color:var(--green);border:1px solid #3ddc8433}
+.tool-badge.error{background:#ff5c5c22;color:var(--red);border:1px solid #ff5c5c33}
+.tool-group{margin:8px 0;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.tool-detail{font-size:12px;color:var(--text2);font-family:var(--mono);white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-top:6px}
+.tool-toggle{font-size:12px;color:var(--accent);cursor:pointer;background:none;border:none;padding:2px 0}
+.input-area{padding:16px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.input-wrap{display:flex;gap:10px;align-items:flex-end;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:10px 14px;transition:border-color .2s}
+.input-wrap:focus-within{border-color:var(--accent)}
+.input-wrap textarea{flex:1;background:none;border:none;color:var(--text);font-family:var(--font);font-size:14px;resize:none;outline:none;max-height:150px;line-height:1.5}
+.send-btn{background:var(--accent);border:none;color:#fff;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.send-btn:hover{background:var(--accent2);transform:scale(1.05)}
+.send-btn:disabled{opacity:.4;cursor:default;transform:none}
+.send-btn svg{width:18px;height:18px}
+.thinking{display:flex;gap:4px;padding:4px 0}.thinking span{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:bounce .6s infinite alternate}.thinking span:nth-child(2){animation-delay:.2s}.thinking span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{to{opacity:.3;transform:translateY(-4px)}}
+.settings-panel{position:fixed;top:0;right:-380px;width:380px;height:100%;background:var(--surface);border-left:1px solid var(--border);z-index:100;transition:right .3s;padding:24px;overflow-y:auto}
+.settings-panel.open{right:0}
+.settings-panel h2{font-size:15px;margin-bottom:16px;color:var(--text)}
+.settings-panel label{display:block;font-size:12px;color:var(--text2);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.5px}
+.settings-panel input,.settings-panel select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .2s}
+.settings-panel input:focus,.settings-panel select:focus{border-color:var(--accent)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin:16px 0}
+.toggle-row span{font-size:13px}
+.toggle{width:44px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:background .2s}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle.on::after{transform:translateX(20px)}
+.settings-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:99;display:none}
+.settings-overlay.open{display:block}
+.diff-header{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.diff-header h3{font-size:13px;font-weight:500}
+.diff-body{flex:1;overflow-y:auto;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.7}
+.diff-line{padding:1px 8px;border-radius:3px}
+.diff-line.add{background:#3ddc8418;color:var(--green)}
+.diff-line.rm{background:#ff5c5c18;color:var(--red);text-decoration:line-through}
+.diff-line.ctx{color:var(--text2)}
+.diff-file{margin:8px 0 4px;color:var(--accent);font-weight:600;font-size:13px}
+.welcome{text-align:center;padding:60px 40px;color:var(--text2);max-width:560px;margin:auto}
+.welcome h2{font-size:22px;color:var(--text);margin-bottom:12px;font-weight:600}
+.welcome p{font-size:14px;line-height:1.7;margin-bottom:8px}
+.welcome .keys{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.welcome .key{background:var(--surface2);border:1px solid var(--border);padding:8px 16px;border-radius:10px;font-size:12px;color:var(--text);cursor:pointer;transition:all .15s}
+.welcome .key:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="chat-col">
+    <div class="header">
+      <h1><span>Amni</span>-Code</h1>
+      <div class="header-actions">
+        <button class="icon-btn" id="diff-toggle" title="Code Changes">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v18H3zM14 3h7v18h-7"/><path d="M7 8H5M7 12H5M7 16H5M19 8h-2M19 12h-2M19 16h-2"/></svg>
+        </button>
+        <button class="icon-btn" id="new-chat" title="New Chat">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6M9 10h6"/></svg>
+        </button>
+        <button class="icon-btn" id="settings-btn" title="Settings">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <h2>Welcome to Amni-Code</h2>
+        <p>Your AI coding agent. Type anything below — ask it to build features, fix bugs, create files, run commands, or explain code. It will do the work for you.</p>
+        <p style="color:var(--text2);font-size:12px;margin-top:6px">Click ⚙ to configure your AI provider (Ollama runs locally by default)</p>
+        <div class="keys">
+          <div class="key" onclick="fillPrompt('Create a Python Flask API with user auth')">Build an API</div>
+          <div class="key" onclick="fillPrompt('Find and fix the bug in main.py')">Debug code</div>
+          <div class="key" onclick="fillPrompt('Explain how this codebase works')">Explain code</div>
+          <div class="key" onclick="fillPrompt('Set up a new React project with TypeScript')">Scaffold project</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="input" rows="1" placeholder="Ask Amni-Code to build, fix, or explain anything..."></textarea>
+        <button class="send-btn" id="send" title="Send">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="diff-col" id="diff-col">
+    <div class="diff-header">
+      <h3>Code Changes</h3>
+      <button class="icon-btn" onclick="toggleDiff()" title="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="diff-body" id="diff-body"></div>
+  </div>
+</div>
+<div class="settings-overlay" id="settings-overlay"></div>
+<div class="settings-panel" id="settings-panel">
+  <h2>Settings</h2>
+  <label>Provider</label>
+  <select id="cfg-provider">
+    <option value="ollama">Ollama (Local)</option>
+    <option value="openai">OpenAI</option>
+    <option value="anthropic">Anthropic</option>
+    <option value="xai">xAI (Grok)</option>
+  </select>
+  <label>Model</label>
+  <select id="cfg-model"><option>Loading...</option></select>
+  <label>API Key <span style="font-size:10px;color:var(--green)" id="key-src"></span></label>
+  <input id="cfg-key" type="password" placeholder="Not needed for Ollama">
+  <label>Base URL</label>
+  <input id="cfg-url" placeholder="http://localhost:11434">
+  <label>Working Directory</label>
+  <input id="cfg-dir" placeholder="Current directory">
+  <div id="dir-tree" style="max-height:150px;overflow-y:auto;margin:6px 0;font-size:12px;font-family:var(--mono)"></div>
+  <div id="model-dir-section" style="display:none">
+    <label>Local Model Directory</label>
+    <input id="cfg-model-dir" placeholder="e.g. C:\models or ~/models">
+  </div>
+  <div class="toggle-row">
+    <span>Auto-approve all agent actions</span>
+    <div class="toggle" id="cfg-auto" onclick="this.classList.toggle('on')"></div>
+  </div>
+  <p style="font-size:11px;color:var(--text2);margin-top:8px">When off, you'll see what the agent wants to do before it executes. When on, it acts autonomously.</p>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const msgEl = $('#messages'), inputEl = $('#input'), sendBtn = $('#send');
+let sessionId = null, diffData = [];
+function fillPrompt(t){ inputEl.value = t; inputEl.focus(); }
+function autoResize(el){ el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 150) + 'px'; }
+inputEl.addEventListener('input', () => autoResize(inputEl));
+inputEl.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }});
+sendBtn.addEventListener('click', send);
+$('#new-chat').addEventListener('click', () => { sessionId = null; diffData = []; msgEl.innerHTML = $('#welcome') ? '' : ''; location.reload(); });
+$('#settings-btn').addEventListener('click', () => { $('#settings-panel').classList.toggle('open'); $('#settings-overlay').classList.toggle('open'); loadConfig(); });
+$('#settings-overlay').addEventListener('click', () => { $('#settings-panel').classList.remove('open'); $('#settings-overlay').classList.remove('open'); saveConfig(); });
+$('#diff-toggle').addEventListener('click', toggleDiff);
+function toggleDiff(){ $('#diff-col').classList.toggle('open'); $('#diff-toggle').classList.toggle('active'); }
+function escHtml(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function renderMd(text){
+  return text
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+function addMsg(role, content, tools){
+  const w = $('#welcome'); if(w) w.remove();
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if(role === 'assistant' && tools && tools.length){
+    let toolHtml = '<div class="tool-group">';
+    tools.forEach(t => {
+      const cls = t.status === 'success' ? 'success' : 'error';
+      toolHtml += `<span class="tool-badge ${cls}">⚡ ${escHtml(t.tool)}</span>`;
+    });
+    toolHtml += `<button class="tool-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">▸ details</button>`;
+    toolHtml += `<div class="tool-detail" style="display:none">`;
+    tools.forEach(t => {
+      toolHtml += `\n─── ${t.tool} ───\nInput: ${JSON.stringify(t.input, null, 2)}\nOutput: ${t.output.substring(0, 500)}${t.output.length > 500 ? '...' : ''}\n`;
+      if(t.tool === 'write_file' || t.tool === 'edit_file') parseDiff(t);
+    });
+    toolHtml += '</div></div>';
+    div.innerHTML = toolHtml + renderMd(content);
+  } else {
+    div.innerHTML = role === 'user' ? escHtml(content) : renderMd(content);
+  }
+  msgEl.appendChild(div);
+  msgEl.scrollTop = msgEl.scrollHeight;
+}
+function parseDiff(tc){
+  const entry = { file: tc.input.path || 'unknown', type: tc.tool };
+  if(tc.tool === 'edit_file'){
+    entry.removed = tc.input.old_string || '';
+    entry.added = tc.input.new_string || '';
+  } else if(tc.tool === 'write_file'){
+    entry.removed = '';
+    entry.added = tc.input.content || '';
+  }
+  diffData.push(entry);
+  renderDiff();
+}
+function renderDiff(){
+  const body = $('#diff-body');
+  if(!diffData.length){ body.innerHTML = '<p style="color:var(--text2);padding:20px;text-align:center">No changes yet</p>'; return; }
+  let html = '';
+  diffData.forEach(d => {
+    html += `<div class="diff-file">📄 ${escHtml(d.file)} (${d.type})</div>`;
+    if(d.removed) d.removed.split('\n').forEach(l => html += `<div class="diff-line rm">- ${escHtml(l)}</div>`);
+    if(d.added) d.added.split('\n').forEach(l => html += `<div class="diff-line add">+ ${escHtml(l)}</div>`);
+  });
+  body.innerHTML = html;
+  if(!$('#diff-col').classList.contains('open')) toggleDiff();
+}
+function showThinking(){
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.id = 'thinking';
+  div.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  msgEl.appendChild(div);
+  msgEl.scrollTop = msgEl.scrollHeight;
+}
+function removeThinking(){ const t = $('#thinking'); if(t) t.remove(); }
+async function send(){
+  const text = inputEl.value.trim();
+  if(!text) return;
+  inputEl.value = ''; autoResize(inputEl);
+  sendBtn.disabled = true;
+  addMsg('user', text);
+  showThinking();
+  try{
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ message: text, session_id: sessionId })
+    });
+    const data = await res.json();
+    removeThinking();
+    sessionId = data.session_id;
+    addMsg('assistant', data.message, data.tool_calls);
+  } catch(e){
+    removeThinking();
+    addMsg('system', 'Connection error — is the server running? Check Settings for provider config.');
+  }
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+async function loadConfig(){
+  try{
+    const res = await fetch('/api/config');
+    const c = await res.json();
+    $('#cfg-provider').value = c.provider;
+    $('#cfg-key').value = c.api_key;
+    $('#cfg-url').value = c.base_url;
+    $('#cfg-dir').value = c.working_dir;
+    if(c.model_dir) $('#cfg-model-dir').value = c.model_dir;
+    if(c.auto_approve) $('#cfg-auto').classList.add('on'); else $('#cfg-auto').classList.remove('on');
+    if(c.api_key) $('#key-src').textContent = '(from ENV)';
+    $('#model-dir-section').style.display = c.provider === 'ollama' ? 'block' : 'none';
+    await loadModels(c.model);
+    loadDirs(c.working_dir);
+  } catch(e){}
+}
+async function loadModels(current){
+  try{
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    const sel = $('#cfg-model');
+    sel.innerHTML = '';
+    if(data.models.length === 0){
+      sel.innerHTML = '<option>(no models found)</option>';
+      return;
+    }
+    data.models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+    if(current && data.models.includes(current)) sel.value = current;
+    else if(current){
+      const opt = document.createElement('option');
+      opt.value = current; opt.textContent = current + ' (custom)';
+      sel.insertBefore(opt, sel.firstChild);
+      sel.value = current;
+    }
+  } catch(e){ $('#cfg-model').innerHTML = '<option>Error loading</option>'; }
+}
+async function loadDirs(base){
+  try{
+    const res = await fetch('/api/dirs?path=' + encodeURIComponent(base || ''));
+    const data = await res.json();
+    const tree = $('#dir-tree');
+    if(!data.dirs.length){ tree.innerHTML = '<span style="color:var(--text2)">No subdirectories</span>'; return; }
+    tree.innerHTML = data.dirs.map(d =>
+      `<div style="padding:2px 6px;cursor:pointer;border-radius:4px;color:var(--text2)" 
+        onmouseenter="this.style.background='var(--surface2)';this.style.color='var(--accent)'" 
+        onmouseleave="this.style.background='';this.style.color='var(--text2)'"
+        onclick="selectDir(this,'${escHtml(base)}','${escHtml(d)}')">📁 ${escHtml(d)}</div>`
+    ).join('');
+  } catch(e){}
+}
+function selectDir(el, base, name){
+  const full = base.replace(/[/\\]$/, '') + (base.includes('/') ? '/' : '\\') + name;
+  $('#cfg-dir').value = full;
+  loadDirs(full);
+}
+async function saveConfig(){
+  try{
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        provider: $('#cfg-provider').value,
+        model: $('#cfg-model').value,
+        api_key: $('#cfg-key').value,
+        base_url: $('#cfg-url').value,
+        working_dir: $('#cfg-dir').value,
+        model_dir: $('#cfg-model-dir').value,
+        auto_approve: $('#cfg-auto').classList.contains('on')
+      })
+    });
+  } catch(e){}
+}
+$('#cfg-provider').addEventListener('change', () => {
+  const p = $('#cfg-provider').value;
+  if(p === 'ollama'){ $('#cfg-url').value = 'http://localhost:11434'; }
+  else if(p === 'openai'){ $('#cfg-url').value = 'https://api.openai.com'; }
+  else if(p === 'anthropic'){ $('#cfg-url').value = 'https://api.anthropic.com'; }
+  else if(p === 'xai'){ $('#cfg-url').value = 'https://api.x.ai'; }
+  $('#model-dir-section').style.display = p === 'ollama' ? 'block' : 'none';
+  saveConfig().then(() => loadModels());
+});
+$('#cfg-dir').addEventListener('change', () => loadDirs($('#cfg-dir').value));
+loadConfig();
+</script>
+</body>
+</html>

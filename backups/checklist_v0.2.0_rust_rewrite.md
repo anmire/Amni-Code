@@ -1,0 +1,14 @@
+# Checklist for Rust Backend + Custom CSS Standalone Rewrite v0.2.0
+- [ ] Scan architecture_map.md
+- [ ] Guardian Council proposals for rewrite (Rust backend, custom CSS UI, standalone)
+- [ ] Backup current React/Vite/Flask files to backups/
+- [ ] Create new Rust project structure with Tauri for standalone desktop with custom CSS
+- [ ] Remove React/Vite dependencies, replace with Rust/Axum or Tauri + custom CSS/JS minimal
+- [ ] Implement API endpoints in Rust with ternary/min lines/no comments
+- [ ] Port model/provider/simple mode toggle, key loading from env/PATH
+- [ ] Add folder select for models in UI
+- [ ] Run cargo check/linter, test
+- [ ] Update changelog, architecture, README for distributable
+- [ ] Ensure no duplicate funcs, maintain structure
+- [ ] Test full functionality as standalone exe
+- [ ] Confirm with user

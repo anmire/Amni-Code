@@ -1,0 +1,11 @@
+C:\Users\antho\Documents\ai\Amni-Code\target\debug\deps\wry-74ebcca4bca4a720.d: C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\lib.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\error.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\proxy.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\web_context.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\mod.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\drag_drop.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\util.rs
+
+C:\Users\antho\Documents\ai\Amni-Code\target\debug\deps\libwry-74ebcca4bca4a720.rmeta: C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\lib.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\error.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\proxy.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\web_context.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\mod.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\drag_drop.rs C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\util.rs
+
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\lib.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\error.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\proxy.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\web_context.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\mod.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\drag_drop.rs:
+C:\Users\antho\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\wry-0.47.2\src\webview2\util.rs:

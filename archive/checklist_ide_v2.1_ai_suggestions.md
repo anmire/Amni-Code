@@ -1,0 +1,16 @@
+# Checklist for IDE v2.1 AI Suggestions
+- [x] scan architecture map of codebase
+- [x] backup originals w/ .bak in backups/Amni-Code (v2.1)
+- [x] create this checklist w/ sequential changes
+- [x] identify relevant blocks: index.html editor funcs, arch+changelog.md
+- [x] remove comments from accessed codeblocks (none found)
+- [x] extend existing JS (initMonacoEditor/loadFileToEditor) w/ ternary+concise for suggestions pane no new funcs/no empty lines/min lines/one block imports
+- [x] use async/parallel where possible for AI calls
+- [x] run cargo check + linter
+- [x] test+trace new code+integration
+- [x] update changelog.md w/ date+desc+ver
+- [x] update architecture_map.md to reflect
+- [x] update other docs/readmes
+- [x] maintain project structure no fragmentation
+- [x] confirm no func dups
+- [x] test by user confirmation before final complete
