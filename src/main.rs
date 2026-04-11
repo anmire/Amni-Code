@@ -8,7 +8,7 @@ struct DownloadProgress {
     done: bool,
     error: String,
 }
-#[derive(Clone)]struct App{sessions:Arc<Mutex<HashMap<String,Session>>>,config:Arc<Mutex<Config>>,cwd:Arc<Mutex<PathBuf>>,dl_progress:Arc<Mutex<DownloadProgress>>,backups:Arc<Mutex<HashMap<String,Vec<(String,Option<String>)>>>>,interrupts:Arc<Mutex<HashMap<String,Arc<AtomicBool>>>>,amni_proc:Arc<Mutex<Option<tokio::process::Child>>>,server_log_tx:Arc<broadcast::Sender<String>>}
+#[derive(Clone)]struct App{sessions:Arc<Mutex<HashMap<String,Session>>>,config:Arc<Mutex<Config>>,cwd:Arc<Mutex<PathBuf>>,dl_progress:Arc<Mutex<DownloadProgress>>,backups:Arc<Mutex<HashMap<String,Vec<(String,Option<String>)>>>>,interrupts:Arc<Mutex<HashMap<String,Arc<AtomicBool>>>>,amni_proc:Arc<Mutex<Option<tokio::process::Child>>>,server_log_tx:Arc<broadcast::Sender<String>>,memory:Arc<Mutex<HashMap<String,Vec<String>>>>,fs_tx:Arc<broadcast::Sender<String>>}
 #[derive(Clone,Default)]struct Session{messages:Vec<serde_json::Value>,working_dir:String}
 #[derive(Clone, Serialize, Deserialize)]
 struct Config {
@@ -90,9 +90,13 @@ const TOOLS_JSON: &str = r#"[
   {"type":"function","function":{"name":"edit_file","description":"Replace a specific string in a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"}},"required":["path","old_string","new_string"]}}},
   {"type":"function","function":{"name":"run_command","description":"Run a shell command","parameters":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}}},
   {"type":"function","function":{"name":"list_directory","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
-  {"type":"function","function":{"name":"search_files","description":"Search for text across files","parameters":{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}},"required":["query"]}}}
+  {"type":"function","function":{"name":"search_files","description":"Search for text across files","parameters":{"type":"object","properties":{"query":{"type":"string"},"path":{"type":"string"}},"required":["query"]}}},
+  {"type":"function","function":{"name":"web_fetch","description":"Fetch a webpage URL and return its text content (HTML stripped). Use for documentation, GitHub repos, articles.","parameters":{"type":"object","properties":{"url":{"type":"string","description":"Full URL (http/https)"},"max_chars":{"type":"integer","description":"Max chars to return (default 6000)"}},"required":["url"]}}},
+  {"type":"function","function":{"name":"web_search","description":"Search the web via DuckDuckGo. Returns titles, URLs, snippets.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Search query"},"max_results":{"type":"integer","description":"Max results (default 5, max 10)"}},"required":["query"]}}},
+  {"type":"function","function":{"name":"memory_read","description":"Read persistent memory notes. Returns stored facts/preferences for a key.","parameters":{"type":"object","properties":{"key":{"type":"string","description":"Memory key to read (e.g. 'project_notes', 'preferences')"}},"required":["key"]}}},
+  {"type":"function","function":{"name":"memory_write","description":"Write to persistent memory. Stores facts/preferences that persist across sessions.","parameters":{"type":"object","properties":{"key":{"type":"string","description":"Memory key"},"content":{"type":"string","description":"Content to store (appended to existing)"}},"required":["key","content"]}}}
 ]"#;
-const SYSTEM_PROMPT:&str="You are Amni-Code,an expert AI coding agent.Your working dir is:{CWD}\n\nCRITICAL:chain actions,NEVER stop after 1 tool,explore w/tools first,read key files before edits,verify after changes,concise,base paths on cwd,fix errors+retry.\n\nTools:read_file,write_file,edit_file,run_command,list_directory,search_files\n\nSupport /interrupt (stop gen) & steering (append mid-gen context).";
+const SYSTEM_PROMPT:&str="You are Amni-Code,an expert AI coding agent.Your working dir is:{CWD}\n\nCRITICAL:chain actions,NEVER stop after 1 tool,explore w/tools first,read key files before edits,verify after changes,concise,base paths on cwd,fix errors+retry.\n\nTools:read_file,write_file,edit_file,run_command,list_directory,search_files,web_fetch,web_search,memory_read,memory_write\n\nSupport /interrupt (stop gen) & steering (append mid-gen context).\n\n{CUSTOM_INSTRUCTIONS}";
 #[derive(Deserialize)]struct ChatReq{message:String,session_id:Option<String>,working_dir:Option<String>}
 #[derive(Serialize)]
 struct ChatRes {
@@ -289,8 +293,143 @@ async fn exec_tool(name: &str, args: &serde_json::Value, cwd: &PathBuf) -> (Stri
                 Err(e) => (format!("Error: {}", e), "error".into()),
             }
         }
+        "web_fetch" => exec_web_fetch(args).await,
+        "web_search" => exec_web_search(args).await,
         _ => (format!("Unknown tool: {}", name), "error".into()),
     }
+}
+fn strip_html(html: &str) -> String {
+    let mut out = String::with_capacity(html.len() / 2);
+    let mut in_tag = false;
+    let mut in_script = false;
+    let mut tag_buf = String::new();
+    for ch in html.chars() {
+        if ch == '<' { in_tag = true; tag_buf.clear(); continue; }
+        if ch == '>' && in_tag {
+            in_tag = false;
+            let tag_lower = tag_buf.to_lowercase();
+            if tag_lower.starts_with("script") || tag_lower.starts_with("style") || tag_lower.starts_with("nav") || tag_lower.starts_with("footer") { in_script = true; }
+            if tag_lower.starts_with("/script") || tag_lower.starts_with("/style") || tag_lower.starts_with("/nav") || tag_lower.starts_with("/footer") { in_script = false; }
+            continue;
+        }
+        if in_tag { tag_buf.push(ch); continue; }
+        if !in_script { out.push(ch); }
+    }
+    let cleaned: String = out.split_whitespace().collect::<Vec<&str>>().join(" ");
+    cleaned
+}
+fn is_private_url(url: &str) -> bool {
+    if let Ok(parsed) = url::Url::parse(url) {
+        let host = parsed.host_str().unwrap_or("");
+        if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" || host.is_empty() { return true; }
+        if let Ok(addr) = host.parse::<std::net::IpAddr>() {
+            return match addr {
+                std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+                std::net::IpAddr::V6(v6) => v6.is_loopback(),
+            };
+        }
+    }
+    false
+}
+async fn exec_web_fetch(args: &serde_json::Value) -> (String, String) {
+    let url = args["url"].as_str().unwrap_or("").trim();
+    let max_chars = args.get("max_chars").and_then(|v| v.as_u64()).unwrap_or(6000) as usize;
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return ("Error: URL must start with http:// or https://".into(), "error".into());
+    }
+    if is_private_url(url) {
+        return ("Error: Cannot fetch private/local URLs".into(), "error".into());
+    }
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).user_agent("Amni-Code/2.0").build().unwrap_or_default();
+    match client.get(url).send().await {
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                return (format!("HTTP error: {}", resp.status()), "error".into());
+            }
+            match resp.text().await {
+                Ok(body) => {
+                    let text = strip_html(&body);
+                    let truncated = if text.len() > max_chars { text[..max_chars].to_string() } else { text };
+                    (truncated, "success".into())
+                }
+                Err(e) => (format!("Read error: {}", e), "error".into()),
+            }
+        }
+        Err(e) => (format!("Fetch failed: {}", e), "error".into()),
+    }
+}
+async fn exec_web_search(args: &serde_json::Value) -> (String, String) {
+    let query = args["query"].as_str().unwrap_or("").trim();
+    let max_results = args.get("max_results").and_then(|v| v.as_u64()).unwrap_or(5).min(10) as usize;
+    if query.is_empty() {
+        return ("Error: empty search query".into(), "error".into());
+    }
+    let encoded = urlencoding::encode(query);
+    let url = format!("https://html.duckduckgo.com/html/?q={}", encoded);
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).user_agent("Amni-Code/2.0").build().unwrap_or_default();
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            match resp.text().await {
+                Ok(html) => {
+                    let mut results = Vec::new();
+                    let re_link = regex::Regex::new(r#"class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>"#).unwrap();
+                    let re_snip = regex::Regex::new(r#"class="result__snippet"[^>]*>(.*?)</(?:a|td|div)"#).unwrap();
+                    let re_tags = regex::Regex::new(r"<[^>]+>").unwrap();
+                    let re_uddg = regex::Regex::new(r"uddg=([^&]+)").unwrap();
+                    let link_matches: Vec<_> = re_link.captures_iter(&html).collect();
+                    for cap in link_matches.iter().take(max_results) {
+                        let raw_href = &cap[1];
+                        let title = re_tags.replace_all(&cap[2], "").trim().to_string();
+                        let real_url = re_uddg.captures(raw_href).map(|u| urlencoding::decode(&u[1]).unwrap_or_default().to_string()).unwrap_or_else(|| raw_href.to_string());
+                        let pos = cap.get(0).map(|m| m.end()).unwrap_or(0);
+                        let snippet = if pos < html.len() {
+                            let search_slice = &html[pos..(pos + 2000).min(html.len())];
+                            re_snip.captures(search_slice).map(|s| re_tags.replace_all(&s[1], "").trim().to_string()).unwrap_or_default()
+                        } else { String::new() };
+                        results.push(serde_json::json!({"title": title, "url": real_url, "snippet": snippet}));
+                    }
+                    (serde_json::json!({"results": results, "count": results.len()}).to_string(), "success".into())
+                }
+                Err(e) => (format!("Read error: {}", e), "error".into()),
+            }
+        }
+        Err(e) => (format!("Search failed: {}", e), "error".into()),
+    }
+}
+fn load_memory_store(cwd: &Path) -> HashMap<String, Vec<String>> {
+    let mem_path = cwd.join(".amni-memory.json");
+    if mem_path.exists() {
+        std::fs::read_to_string(&mem_path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    } else {
+        let home_path = dirs::home_dir().map(|h| h.join(".amni").join("memory.json")).unwrap_or_default();
+        if home_path.exists() {
+            std::fs::read_to_string(&home_path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        } else {
+            HashMap::new()
+        }
+    }
+}
+fn save_memory_store(cwd: &Path, store: &HashMap<String, Vec<String>>) {
+    let mem_path = cwd.join(".amni-memory.json");
+    if let Ok(json) = serde_json::to_string_pretty(store) {
+        let _ = std::fs::write(&mem_path, json);
+    }
+}
+fn load_custom_instructions(cwd: &Path) -> String {
+    let candidates = [".amni-instructions.md", ".amni-instructions.txt", ".github/copilot-instructions.md", "AGENTS.md"];
+    let mut instructions = Vec::new();
+    for name in &candidates {
+        let path = cwd.join(name);
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                let trimmed = content.trim();
+                if !trimmed.is_empty() {
+                    instructions.push(format!("--- {} ---\n{}", name, trimmed));
+                }
+            }
+        }
+    }
+    if instructions.is_empty() { String::new() } else { format!("PROJECT INSTRUCTIONS:\n{}", instructions.join("\n\n")) }
 }
 struct ToolCall {
     id: String,
@@ -417,7 +556,7 @@ fn compact_context(messages: &mut Vec<serde_json::Value>) {
     }));
     messages.extend(recent);
 }
-async fn agent_loop_stream(app:App,sid:String,user_msg:String,wd:Option<String>,tx:tokio::sync::mpsc::Sender<SseEvent>){let config=app.config.lock().await.clone();ensure_model_loaded(&config).await;let cwd=app.cwd.lock().await.clone();let cwd_path=if let Some(s)=app.sessions.lock().await.get(&sid){if!s.working_dir.is_empty(){PathBuf::from(&s.working_dir)}else{cwd.clone()}}else{wd.as_ref().map_or(cwd.clone(),|w|PathBuf::from(w))};{let mut sessions=app.sessions.lock().await;let session=sessions.entry(sid.clone()).or_default();if session.messages.is_empty(){let sys=SYSTEM_PROMPT.replace("{CWD}",&cwd_path.display().to_string());session.messages.push(serde_json::json!({"role":"system","content":sys}));if let Some(w)=wd{session.working_dir=w.clone();}}session.messages.push(serde_json::json!({"role":"user","content":&user_msg}));compact_context(&mut session.messages);}let interrupt_flag={let mut interrupts=app.interrupts.lock().await;let flag=interrupts.entry(sid.clone()).or_insert_with(||Arc::new(AtomicBool::new(false))).clone();flag.store(false,std::sync::atomic::Ordering::Relaxed);flag};
+async fn agent_loop_stream(app:App,sid:String,user_msg:String,wd:Option<String>,tx:tokio::sync::mpsc::Sender<SseEvent>){let config=app.config.lock().await.clone();ensure_model_loaded(&config).await;let cwd=app.cwd.lock().await.clone();let cwd_path=if let Some(s)=app.sessions.lock().await.get(&sid){if!s.working_dir.is_empty(){PathBuf::from(&s.working_dir)}else{cwd.clone()}}else{wd.as_ref().map_or(cwd.clone(),|w|PathBuf::from(w))};{let mut sessions=app.sessions.lock().await;let session=sessions.entry(sid.clone()).or_default();if session.messages.is_empty(){let custom=load_custom_instructions(&cwd_path);let sys=SYSTEM_PROMPT.replace("{CWD}",&cwd_path.display().to_string()).replace("{CUSTOM_INSTRUCTIONS}",&custom);session.messages.push(serde_json::json!({"role":"system","content":sys}));if let Some(w)=wd{session.working_dir=w.clone();}}session.messages.push(serde_json::json!({"role":"user","content":&user_msg}));compact_context(&mut session.messages);}let interrupt_flag={let mut interrupts=app.interrupts.lock().await;let flag=interrupts.entry(sid.clone()).or_insert_with(||Arc::new(AtomicBool::new(false))).clone();flag.store(false,std::sync::atomic::Ordering::Relaxed);flag};
 let _=tx.send(SseEvent::default().event("session").data(serde_json::json!({"session_id":&sid}).to_string())).await;
 let mut it=0;while it<100{if interrupt_flag.load(std::sync::atomic::Ordering::Relaxed){let _=tx.send(SseEvent::default().event("interrupted").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}it+=1;let messages=app.sessions.lock().await.entry(sid.clone()).or_default().messages.clone();match llm_call(&config,&messages).await{Ok((raw_msg,tool_calls))=>{if tool_calls.is_empty(){let content=raw_msg["content"].as_str().unwrap_or("").to_string();app.sessions.lock().await.entry(sid.clone()).or_default().messages.push(raw_msg);let _=tx.send(SseEvent::default().event("message").data(serde_json::json!({"message":&content}).to_string())).await;let _=tx.send(SseEvent::default().event("done").data(serde_json::json!({"session_id":&sid}).to_string())).await;return;}
                 app.sessions
@@ -453,7 +592,22 @@ let mut it=0;while it<100{if interrupt_flag.load(std::sync::atomic::Ordering::Re
                             }
                         }
                     }
-                    let (output, status) = exec_tool(&tc.name, &tc.args, &cwd_path).await;
+                    let (output, status) = if tc.name == "memory_read" {
+                        let key = tc.args["key"].as_str().unwrap_or("").to_string();
+                        let mem = app.memory.lock().await;
+                        let entries = mem.get(&key).cloned().unwrap_or_default();
+                        if entries.is_empty() { (format!("No memory found for key '{}'", key), "success".into()) }
+                        else { (entries.join("\n---\n"), "success".into()) }
+                    } else if tc.name == "memory_write" {
+                        let key = tc.args["key"].as_str().unwrap_or("").to_string();
+                        let content = tc.args["content"].as_str().unwrap_or("").to_string();
+                        let mut mem = app.memory.lock().await;
+                        mem.entry(key.clone()).or_default().push(content.clone());
+                        save_memory_store(&cwd_path, &mem);
+                        (format!("Stored to memory key '{}': {} chars", key, content.len()), "success".into())
+                    } else {
+                        exec_tool(&tc.name, &tc.args, &cwd_path).await
+                    };
                     let _ = tx
                         .send(
                             SseEvent::default().event("tool_result").data(
@@ -1560,6 +1714,25 @@ async fn handle_hf_progress(State(app): State<App>) -> Json<DownloadProgress> {
 async fn handle_health() -> &'static str {
     "ok"
 }
+async fn handle_fs_events(State(app): State<App>) -> Sse<impl futures::Stream<Item = Result<SseEvent, Infallible>> + Send + 'static> {
+    let mut rx = app.fs_tx.subscribe();
+    let (tx, out_rx) = tokio::sync::mpsc::channel::<SseEvent>(64);
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(data) => { let _ = tx.send(SseEvent::default().event("fs").data(data)).await; }
+                Err(broadcast::error::RecvError::Closed) => break,
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            }
+        }
+    });
+    Sse::new(ReceiverStream::new(out_rx).map(|e| Ok::<_, Infallible>(e))).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(30)))
+}
+async fn handle_memory_list(State(app): State<App>) -> Json<serde_json::Value> {
+    let mem = app.memory.lock().await;
+    let keys: Vec<&String> = mem.keys().collect();
+    Json(serde_json::json!({"keys": keys, "count": keys.len()}))
+}
 async fn serve_ui() -> Html<&'static str> {
     Html(include_str!("../static/index.html"))
 }
@@ -1608,10 +1781,58 @@ async fn main() -> anyhow::Result<()> {
         Config::default()
     };
     if config.working_dir.is_empty() { config.working_dir = cwd.to_string_lossy().into(); }
-    println!("\n  Amni-Code v1.1.0 — AI Coding Agent");
-    println!("  Working dir: {}", cwd.display());
+    // CLI arg: first non-flag argument sets working directory
+    let cli_dir: Option<String> = std::env::args().skip(1).find(|a| !a.starts_with('-') && std::fs::metadata(a).map(|m| m.is_dir()).unwrap_or(false));
+    if let Some(ref d) = cli_dir {
+        let p = std::fs::canonicalize(d).unwrap_or_else(|_| PathBuf::from(d));
+        config.working_dir = p.to_string_lossy().to_string();
+    }
+    let effective_cwd = PathBuf::from(&config.working_dir);
+    let custom_inst = load_custom_instructions(&effective_cwd);
+    println!("\n  Amni-Code v2.1.0 — AI Coding Agent");
+    println!("  Working dir: {}", effective_cwd.display());
+    if !custom_inst.is_empty() { println!("  Custom instructions: loaded from project"); }
+    let memory = load_memory_store(&effective_cwd);
+    if !memory.is_empty() { println!("  Memory: {} keys loaded", memory.len()); }
     let (server_log_tx,_)=broadcast::channel::<String>(512);
-    let app=App{sessions:Arc::new(Mutex::new(HashMap::new())),config:Arc::new(Mutex::new(config)),cwd:Arc::new(Mutex::new(cwd)),dl_progress:Arc::new(Mutex::new(DownloadProgress::default())),backups:Arc::new(Mutex::new(HashMap::new())),interrupts:Arc::new(Mutex::new(HashMap::new())),amni_proc:Arc::new(Mutex::new(None)),server_log_tx:Arc::new(server_log_tx)};
+    let (fs_tx,_)=broadcast::channel::<String>(256);
+    let app=App{sessions:Arc::new(Mutex::new(HashMap::new())),config:Arc::new(Mutex::new(config)),cwd:Arc::new(Mutex::new(effective_cwd.clone())),dl_progress:Arc::new(Mutex::new(DownloadProgress::default())),backups:Arc::new(Mutex::new(HashMap::new())),interrupts:Arc::new(Mutex::new(HashMap::new())),amni_proc:Arc::new(Mutex::new(None)),server_log_tx:Arc::new(server_log_tx),memory:Arc::new(Mutex::new(memory)),fs_tx:Arc::new(fs_tx.clone())};
+    // File watcher — polls for changes every 2s and broadcasts via fs_tx
+    let watch_dir = effective_cwd.clone();
+    let fs_tx_clone = fs_tx.clone();
+    tokio::spawn(async move {
+        let mut snapshot: HashMap<String, u64> = HashMap::new();
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            let mut current: HashMap<String, u64> = HashMap::new();
+            if let Ok(mut rd) = tokio::fs::read_dir(&watch_dir).await {
+                while let Ok(Some(e)) = rd.next_entry().await {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if name.starts_with('.') || name == "node_modules" || name == "__pycache__" || name == "target" { continue; }
+                    if let Ok(meta) = e.metadata().await {
+                        let mtime = meta.modified().ok().and_then(|t| t.duration_since(std::time::SystemTime::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0);
+                        current.insert(name.clone(), mtime);
+                    }
+                }
+            }
+            let mut changes = Vec::new();
+            for (name, mtime) in &current {
+                match snapshot.get(name) {
+                    None => changes.push(format!("added:{}", name)),
+                    Some(old) if old != mtime => changes.push(format!("modified:{}", name)),
+                    _ => {}
+                }
+            }
+            for name in snapshot.keys() {
+                if !current.contains_key(name) { changes.push(format!("deleted:{}", name)); }
+            }
+            if !changes.is_empty() {
+                let payload = serde_json::json!({"changes": changes}).to_string();
+                let _ = fs_tx_clone.send(payload);
+            }
+            snapshot = current;
+        }
+    });
     let router = Router::new()
         .route("/", get(serve_ui))
         .route("/api/chat", post(handle_chat))
@@ -1635,6 +1856,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/hf/files", get(handle_hf_files))
         .route("/api/hf/download", post(handle_hf_download))
         .route("/api/hf/progress", get(handle_hf_progress))
+        .route("/api/fs-events", get(handle_fs_events))
+        .route("/api/memory", get(handle_memory_list))
         .route("/health", get(handle_health))
         .layer(CorsLayer::permissive())
         .with_state(app);
