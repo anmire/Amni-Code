@@ -10,14 +10,18 @@ echo   !E![95m╚═════════════════════
 echo.
 set "H=%USERPROFILE%\.amni"
 set "BIN=!H!\amni-app.exe"
-set "REPO=%~dp0"
-set "REPO=!REPO:~0,-1!"
-where cargo >nul 2>nul || (
-    <nul set /p =  !E![93m RUST !E![97mInstalling Rust toolchain...!E![0m
-    powershell -nop -c "Invoke-WebRequest -Uri 'https://win.rustup.rs/x86_64' -OutFile '%TEMP%\rustup-init.exe';Start-Process '%TEMP%\rustup-init.exe' -ArgumentList '-y','--default-toolchain','stable' -Wait"
-    set "PATH=%USERPROFILE%\.cargo\bin;!PATH!"
-    echo  !E![92m✓!E![0m
+if not exist "!H!\.repo" (
+    echo   !E![93mNo repo configured. Run run.bat from the Amni-Code repo first.!E![0m
+    if exist "!BIN!" ("!BIN!" %*) else (pause)
+    exit /b
 )
+set /p REPO=<"!H!\.repo"
+if not exist "!REPO!\.git" (
+    echo   !E![93mRepo moved? Running cached binary.!E![0m
+    if exist "!BIN!" ("!BIN!" %*) else (echo   !E![91mNo binary found.!E![0m&pause)
+    exit /b
+)
+pushd "!REPO!"
 <nul set /p =  !E![96m SYN  !E![95m■!E![90m····  !E![97mChecking upstream        !E![0m
 git fetch --quiet 2>nul
 for /f %%i in ('git rev-parse HEAD 2^>nul') do set "L=%%i"
@@ -39,32 +43,24 @@ if "!NB!"=="1" (
     if errorlevel 1 (
         echo !E![91m✗!E![0m
         echo.
-        echo   !E![91mBuild failed:!E![0m
+        echo   !E![91mBuild failed — showing errors:!E![0m
+        echo.
         cargo build --release 2>&1
-        pause
-        exit /b 1
+        popd
+        if exist "!BIN!" (echo.&echo   !E![93mLaunching cached binary...!E![0m&"!BIN!" %*)
+        exit /b
     )
+    echo !E![92m✓!E![0m
+    <nul set /p =  !E![96m LINK !E![95m■■■■!E![90m·  !E![97mInstalling binary        !E![0m
+    copy /Y "target\release\amni.exe" "!BIN!" >nul 2>nul
     echo !E![92m✓!E![0m
 ) else (
     echo   !E![96m MAKE !E![90m■■■··  cached!E![0m
+    echo   !E![96m LINK !E![90m■■■■·  cached!E![0m
 )
-<nul set /p =  !E![96m INST !E![95m■■■■!E![90m·  !E![97mInstalling global cmd    !E![0m
-if not exist "!H!" mkdir "!H!"
-copy /Y "target\release\amni.exe" "!BIN!" >nul 2>nul
-echo !REPO!>"!H!\.repo"
-copy /Y "!REPO!\amni-launcher.cmd" "!H!\amni.cmd" >nul 2>nul
-if exist "!H!\amni.exe" del "!H!\amni.exe" >nul 2>nul
-if exist "%USERPROFILE%\.cargo\bin\amni.exe" del "%USERPROFILE%\.cargo\bin\amni.exe" >nul 2>nul
-echo %PATH% | findstr /I /C:".amni" >nul
-if errorlevel 1 (
-    powershell -nop -c "[Environment]::SetEnvironmentVariable('Path',[Environment]::GetEnvironmentVariable('Path','User')+';%USERPROFILE%\.amni','User')"
-    set "PATH=!PATH!;!H!"
-)
-echo !E![92m✓!E![0m
 echo   !E![96m BOOT !E![92;1m■■■■■  Ignition!E![0m
+popd
 echo.
 echo   !E![95m═════════════════════════════════════════════!E![0m
-echo   !E![92;1m  ✓ Ready!!E![0m !E![97mType !E![96mamni!E![97m anywhere to launch.!E![0m
-echo   !E![95m═════════════════════════════════════════════!E![0m
 echo.
-"!BIN!" %*
+if exist "!BIN!" ("!BIN!" %*) else (echo   !E![91mBinary not found.!E![0m&pause)
