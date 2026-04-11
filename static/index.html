@@ -355,10 +355,19 @@ document.querySelectorAll('[data-i18n-title]').forEach(el=>{const k=el.getAttrib
   <select id="cfg-provider">
     <option value="xai">xAI (Grok)</option>
     <option value="openai">OpenAI</option>
-    <option value="anthropic">Anthropic</option>
+    <option value="anthropic">Anthropic (Claude)</option>
+    <option value="google">Google (Gemini)</option>
+    <option value="deepseek">DeepSeek</option>
+    <option value="groq">Groq</option>
+    <option value="mistral">Mistral</option>
+    <option value="cohere">Cohere</option>
+    <option value="together">Together AI</option>
+    <option value="fireworks">Fireworks AI</option>
+    <option value="perplexity">Perplexity</option>
+    <option value="openrouter">OpenRouter</option>
+    <option value="amni">Amni-AI (Local)</option>
     <option value="ollama">Ollama (Local)</option>
-    <option value="local">Custom Local Server</option>
-    <option value="amni">Amni-AI (Adam / Gemma PTEX)</option>
+    <option value="local">Custom / OpenAI-compatible</option>
   </select>
   <label data-i18n="model">Model</label>
   <select id="cfg-model"><option>Loading...</option></select>
@@ -787,18 +796,34 @@ async function loadConfig(){
     $('#cfg-provider').value = c.provider;
     $('#cfg-key').value = c.api_key;
     $('#cfg-url').value = c.base_url;
-$('#cfg-dir').value=c.working_dir;$('#cwd-path').textContent=c.working_dir||'unknown';if(c.model_dir)$('#cfg-model-dir').value=c.model_dir;if(c.auto_approve)$('#cfg-auto').classList.add('on');else $('#cfg-auto').classList.remove('on');if(c.api_key)$('#key-src').textContent='(from ENV)';$('#model-dir-section').style.display=(c.provider==='ollama'||c.provider==='local')?'block':'none';$('#api-key-label').style.display=(c.provider==='ollama'||c.provider==='local')?'none':'block';$('#cfg-key').style.display=(c.provider==='ollama'||c.provider==='local')?'none':'block';await loadModels(c.model);loadDirs(c.working_dir);loadSidebar(c.working_dir);
+$('#cfg-dir').value=c.working_dir;$('#cwd-path').textContent=c.working_dir||'unknown';if(c.model_dir)$('#cfg-model-dir').value=c.model_dir;if(c.auto_approve)$('#cfg-auto').classList.add('on');else $('#cfg-auto').classList.remove('on');if(c.api_key)$('#key-src').textContent='(from ENV)';const noKey=c.provider==='ollama'||c.provider==='local'||c.provider==='amni';$('#model-dir-section').style.display=(c.provider==='ollama'||c.provider==='local')?'block':'none';$('#api-key-label').style.display=noKey?'none':'block';$('#cfg-key').style.display=noKey?'none':'block';await loadModels(c.model);loadDirs(c.working_dir);loadSidebar(c.working_dir);
   } catch(e){console.error('loadConfig:',e);}
 }
 async function loadModels(current){
   try{
+    const PROVIDER_MODELS = {
+      xai:['grok-4','grok-4-fast','grok-3','grok-3-fast','grok-2-1212'],
+      openai:['gpt-5','gpt-5-mini','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini','o3','o3-pro','o4-mini','o3-mini'],
+      anthropic:['claude-opus-4-20250514','claude-sonnet-4-20250514','claude-haiku-4-20250514'],
+      google:['gemini-2.5-pro','gemini-2.5-flash','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-pro'],
+      deepseek:['deepseek-chat','deepseek-reasoner','deepseek-coder'],
+      groq:['llama-3.3-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it','deepseek-r1-distill-llama-70b'],
+      mistral:['mistral-large-latest','mistral-medium-latest','mistral-small-latest','codestral-latest','open-mistral-nemo'],
+      cohere:['command-r-plus','command-r','command-a-03-2025'],
+      together:['meta-llama/Llama-3.3-70B-Instruct-Turbo','meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo','deepseek-ai/DeepSeek-R1','Qwen/Qwen2.5-72B-Instruct-Turbo','mistralai/Mixtral-8x22B-Instruct-v0.1'],
+      fireworks:['accounts/fireworks/models/llama-v3p3-70b-instruct','accounts/fireworks/models/mixtral-8x22b-instruct','accounts/fireworks/models/deepseek-r1'],
+      perplexity:['sonar-pro','sonar','sonar-deep-research','sonar-reasoning-pro'],
+      openrouter:['openai/gpt-4o','anthropic/claude-sonnet-4','google/gemini-2.5-pro','meta-llama/llama-3.3-70b-instruct','deepseek/deepseek-r1'],
+      amni:[],ollama:[],local:[]
+    };
     const res = await fetch('/api/models');
     const data = await res.json();
     const sel = $('#cfg-model');
     sel.innerHTML = '';
-    if(data.models.length === 0){
-      const p = $('#cfg-provider').value;
-      if((p === 'amni' || p === 'local') && !$('#server-start-overlay').classList.contains('open')){
+    const p = $('#cfg-provider').value;
+    let mlist = data.models.length ? data.models : (PROVIDER_MODELS[p] || []);
+    if(mlist.length === 0){
+      if((p === 'local' || p === 'amni') && !$('#server-start-overlay').classList.contains('open')){
         sel.innerHTML = '<option>(starting server...)</option>';
         checkAndStartServer();
         return;
@@ -807,6 +832,7 @@ async function loadModels(current){
       sel.innerHTML = `<option>${hint}</option>`;
       return;
     }
+    data.models = mlist;
     data.models.forEach(m => {
       const opt = document.createElement('option');
       opt.value = m; opt.textContent = m;
@@ -960,17 +986,19 @@ async function checkAndStartServer(){
 }
 $('#cfg-provider').addEventListener('change', () => {
   const p = $('#cfg-provider').value;
-  if(p === 'ollama'){ $('#cfg-url').value = 'http://localhost:11434'; }
-  else if(p === 'local'){ $('#cfg-url').value = 'http://localhost:8787'; }
-  else if(p === 'amni'){ $('#cfg-url').value = 'http://127.0.0.1:8787'; }
-  else if(p === 'openai'){ $('#cfg-url').value = 'https://api.openai.com'; }
-  else if(p === 'anthropic'){ $('#cfg-url').value = 'https://api.anthropic.com'; }
-  else if(p === 'xai'){ $('#cfg-url').value = 'https://api.x.ai'; }
+  const PROVIDER_URLS = {
+    ollama:'http://localhost:11434', local:'http://localhost:8787', amni:'http://127.0.0.1:8787',
+    openai:'https://api.openai.com', anthropic:'https://api.anthropic.com', xai:'https://api.x.ai',
+    google:'https://generativelanguage.googleapis.com', deepseek:'https://api.deepseek.com',
+    groq:'https://api.groq.com', mistral:'https://api.mistral.ai', cohere:'https://api.cohere.com',
+    together:'https://api.together.xyz', fireworks:'https://api.fireworks.ai',
+    perplexity:'https://api.perplexity.ai', openrouter:'https://openrouter.ai'
+  };
+  if(PROVIDER_URLS[p]) $('#cfg-url').value = PROVIDER_URLS[p];
   const isLocal = p === 'ollama' || p === 'local' || p === 'amni';
   $('#model-dir-section').style.display = (p === 'ollama' || p === 'local') ? 'block' : 'none';
   $('#api-key-label').style.display = isLocal ? 'none' : 'block';
   $('#cfg-key').style.display = isLocal ? 'none' : 'block';
-  // Clear stale model from previous provider before saving
   $('#cfg-model').innerHTML = '<option>Loading...</option>';
   saveConfig().then(() => {
     if(p === 'amni' || p === 'local') checkAndStartServer();

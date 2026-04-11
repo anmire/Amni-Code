@@ -34,12 +34,45 @@ impl Default for Config {
         .unwrap_or_default();
         let openai_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
         let anthropic_key = std::env::var("ANTHROPIC_API_KEY").unwrap_or_default();
+        let google_key = ["GOOGLE_AI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"]
+            .iter()
+            .find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
+            .unwrap_or_default();
+        let deepseek_key = std::env::var("DEEPSEEK_API_KEY").unwrap_or_default();
+        let groq_key = std::env::var("GROQ_API_KEY").unwrap_or_default();
+        let mistral_key = ["MISTRAL_API_KEY", "MISTRAL_KEY"]
+            .iter()
+            .find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
+            .unwrap_or_default();
+        let cohere_key = std::env::var("COHERE_API_KEY").unwrap_or_default();
+        let together_key = std::env::var("TOGETHER_API_KEY").unwrap_or_default();
+        let fireworks_key = std::env::var("FIREWORKS_API_KEY").unwrap_or_default();
+        let perplexity_key = std::env::var("PERPLEXITY_API_KEY").unwrap_or_default();
+        let openrouter_key = std::env::var("OPENROUTER_API_KEY").unwrap_or_default();
         let (provider, key) = if !xai_key.is_empty() {
             ("xai", xai_key)
         } else if !openai_key.is_empty() {
             ("openai", openai_key)
         } else if !anthropic_key.is_empty() {
             ("anthropic", anthropic_key)
+        } else if !google_key.is_empty() {
+            ("google", google_key)
+        } else if !deepseek_key.is_empty() {
+            ("deepseek", deepseek_key)
+        } else if !groq_key.is_empty() {
+            ("groq", groq_key)
+        } else if !mistral_key.is_empty() {
+            ("mistral", mistral_key)
+        } else if !cohere_key.is_empty() {
+            ("cohere", cohere_key)
+        } else if !together_key.is_empty() {
+            ("together", together_key)
+        } else if !fireworks_key.is_empty() {
+            ("fireworks", fireworks_key)
+        } else if !perplexity_key.is_empty() {
+            ("perplexity", perplexity_key)
+        } else if !openrouter_key.is_empty() {
+            ("openrouter", openrouter_key)
         } else {
             ("xai", String::new())
         };
@@ -49,9 +82,45 @@ impl Default for Config {
                 "claude-sonnet-4-20250514".to_string(),
                 "https://api.anthropic.com".to_string(),
             ),
+            "google" => (
+                "gemini-2.5-flash".to_string(),
+                "https://generativelanguage.googleapis.com".to_string(),
+            ),
+            "deepseek" => (
+                "deepseek-chat".to_string(),
+                "https://api.deepseek.com".to_string(),
+            ),
+            "groq" => (
+                "llama-3.3-70b-versatile".to_string(),
+                "https://api.groq.com".to_string(),
+            ),
+            "mistral" => (
+                "mistral-large-latest".to_string(),
+                "https://api.mistral.ai".to_string(),
+            ),
+            "cohere" => (
+                "command-r-plus".to_string(),
+                "https://api.cohere.com".to_string(),
+            ),
+            "together" => (
+                "meta-llama/Llama-3.3-70B-Instruct-Turbo".to_string(),
+                "https://api.together.xyz".to_string(),
+            ),
+            "fireworks" => (
+                "accounts/fireworks/models/llama-v3p3-70b-instruct".to_string(),
+                "https://api.fireworks.ai".to_string(),
+            ),
+            "perplexity" => (
+                "sonar-pro".to_string(),
+                "https://api.perplexity.ai".to_string(),
+            ),
+            "openrouter" => (
+                "anthropic/claude-sonnet-4".to_string(),
+                "https://openrouter.ai".to_string(),
+            ),
+            "amni" => (String::new(), "http://127.0.0.1:8787".to_string()),
             "ollama" => (String::new(), "http://localhost:11434".to_string()),
             "local" => (String::new(), "http://localhost:11434".to_string()),
-            "amni" => (String::new(), "http://127.0.0.1:8787".to_string()),
             _ => (
                 "grok-4-1-fast-reasoning".to_string(),
                 "https://api.x.ai".to_string(),
@@ -444,18 +513,9 @@ async fn llm_request(
     let (url, key_header) = match config.provider.as_str() {
         "ollama" => (format!("{}/v1/chat/completions", config.base_url), None),
         "local" => (format!("{}/v1/chat/completions", config.base_url), None),
-        "amni" => (
-            format!(
-                "{}/v1/chat/completions",
-                config.base_url.trim_end_matches('/')
-            ),
-            None,
-        ),
+        "amni" => (format!("{}/v1/chat/completions", config.base_url.trim_end_matches('/')), None),
         "openai" => (
-            format!(
-                "{}/v1/chat/completions",
-                config.base_url.trim_end_matches('/')
-            ),
+            format!("{}/v1/chat/completions", config.base_url.trim_end_matches('/')),
             Some(("Authorization", format!("Bearer {}", config.api_key))),
         ),
         "anthropic" => (
@@ -464,6 +524,42 @@ async fn llm_request(
         ),
         "xai" => (
             "https://api.x.ai/v1/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "google" => (
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "deepseek" => (
+            "https://api.deepseek.com/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "groq" => (
+            "https://api.groq.com/openai/v1/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "mistral" => (
+            "https://api.mistral.ai/v1/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "cohere" => (
+            "https://api.cohere.com/v2/chat".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "together" => (
+            "https://api.together.xyz/v1/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "fireworks" => (
+            "https://api.fireworks.ai/inference/v1/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "perplexity" => (
+            "https://api.perplexity.ai/chat/completions".into(),
+            Some(("Authorization", format!("Bearer {}", config.api_key))),
+        ),
+        "openrouter" => (
+            "https://openrouter.ai/api/v1/chat/completions".into(),
             Some(("Authorization", format!("Bearer {}", config.api_key))),
         ),
         other => return Err((format!("Unknown provider: {}", other), false)),
@@ -1121,42 +1217,34 @@ async fn handle_models(State(app): State<App>) -> Json<ModelsRes> {
             .iter()
             .map(|s| s.to_string()),
         );
+    } else if cfg.provider == "google" {
+        models.extend(["gemini-2.5-pro","gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-1.5-pro"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "deepseek" {
+        models.extend(["deepseek-chat","deepseek-reasoner","deepseek-coder"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "groq" {
+        models.extend(["llama-3.3-70b-versatile","llama-3.1-8b-instant","llama-3.1-70b-versatile","mixtral-8x7b-32768","gemma2-9b-it","deepseek-r1-distill-llama-70b"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "mistral" {
+        models.extend(["mistral-large-latest","mistral-medium-latest","mistral-small-latest","codestral-latest","open-mistral-nemo","open-codestral-mamba"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "cohere" {
+        models.extend(["command-r-plus","command-r","command-a-03-2025"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "together" {
+        models.extend(["meta-llama/Llama-3.3-70B-Instruct-Turbo","meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo","deepseek-ai/DeepSeek-R1","Qwen/Qwen2.5-72B-Instruct-Turbo","mistralai/Mixtral-8x22B-Instruct-v0.1"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "fireworks" {
+        models.extend(["accounts/fireworks/models/llama-v3p3-70b-instruct","accounts/fireworks/models/mixtral-8x22b-instruct","accounts/fireworks/models/deepseek-r1"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "perplexity" {
+        models.extend(["sonar-pro","sonar","sonar-deep-research","sonar-reasoning-pro"].iter().map(|s| s.to_string()));
+    } else if cfg.provider == "openrouter" {
+        models.extend(["openai/gpt-4o","anthropic/claude-sonnet-4","google/gemini-2.5-pro","meta-llama/llama-3.3-70b-instruct","deepseek/deepseek-r1"].iter().map(|s| s.to_string()));
     } else if cfg.provider == "amni" {
-        // Query Amni-AI server (OpenAI-compat API at 127.0.0.1:8787)
-        let amni_base = if base.contains("8787") || base.contains("amni") {
-            base.clone()
-        } else {
-            "http://127.0.0.1:8787".to_string()
-        };
-        match client.get(format!("{}/v1/models", amni_base)).send().await {
-            Ok(resp) => {
-                if let Ok(json) = resp.json::<serde_json::Value>().await {
-                    if let Some(arr) = json["data"].as_array() {
-                        for m in arr {
-                            if let Some(id) = m["id"].as_str() {
-                                models.push(id.to_string());
-                            }
-                        }
+        let amni_base = if base.contains("8787") || base.contains("amni") { base.clone() } else { "http://127.0.0.1:8787".to_string() };
+        if let Ok(resp) = client.get(format!("{}/v1/models", amni_base)).send().await {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(arr) = json["data"].as_array() {
+                    for m in arr {
+                        if let Some(id) = m["id"].as_str() { models.push(id.to_string()); }
                     }
                 }
             }
-            Err(e) => tracing::warn!("Amni-AI /v1/models error: {}", e),
-        }
-        if models.is_empty() {
-            // Fallback: known Adam configs + Gemma PTEX
-            models.extend(
-                [
-                    "amni-a1",
-                    "adam-nano", "adam-micro", "adam-mini", "adam-tiny",
-                    "adam-small", "adam-medium", "adam-large",
-                    "adam-1", "adam-1b", "adam-7b", "adam-14b",
-                    "adam-24b", "adam-70b", "adam-140b", "adam-gemma-31b",
-                    "gemma-e2b-ptex", "gemma-e2b-ptex-gf17-compressed",
-                    "gemma-4-31B-ptex", "gemma-4-31B", "gemma-4-E2B-it",
-                ]
-                .iter()
-                .map(|s| s.to_string()),
-            );
         }
     }
     tracing::info!("Model discovery found {} models", models.len());
