@@ -223,8 +223,9 @@ class AmniCodeInstaller:
         print("This may take several minutes depending on your internet speed...")
 
         models = [
-            ("Jackrong/Qwen3.5-9B-Neo", "models/Qwen3.5-9B-Neo"),
-            ("Jackrong/MLX-Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "models/MLX-Qwen3.5-4B")
+            ("Qwen/Qwen3.5-7B-Instruct", "models/Qwen3.5-7B-Instruct"),
+            ("meta-llama/Llama-4-Scout-17B-16E-Instruct", "models/Llama-4-Scout-17B-16E-Instruct"),
+            ("Zyphra/ZAYA1-base", "models/ZAYA1-base")
         ]
 
         for model_repo, local_dir in models:
